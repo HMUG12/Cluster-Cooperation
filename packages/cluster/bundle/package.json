@@ -1,0 +1,42 @@
+{
+  "description": "Cluster Cooperation profile bundle: Agent Teams plus declarative cluster configuration and role-based model routing",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "name": "@deepseek-ai/dsh-cluster-bundle",
+  "private": true,
+  "type": "module",
+  "types": "lib/types/index.d.ts",
+  "version": "0.1.6-alpha.2",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "cordis.patch.yml",
+    "lib/types/**/*.d.ts"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-cluster-config": "workspace:^",
+    "@deepseek-ai/dsh-cluster-router": "workspace:^",
+    "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
+    "@deepseek-ai/dsh-experimental-tool-agent-team": "workspace:^"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:^"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/cordis-plugin-include": "workspace:^",
+    "js-yaml": "^4.2.0"
+  }
+}

@@ -4,6 +4,24 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
+/**
+ * Route bound to one teammate at creation.
+ *
+ * This mirrors `AgentOptions` field by field instead of importing it, because
+ * this module also feeds the browser contribution and the Host Agent package
+ * must not enter the Client program.
+ */
+export interface TeamSpawnRoute {
+  /** Registered provider route. */
+  readonly provider?: string
+  /** Provider-owned model id. */
+  readonly model?: string
+  /** Adapter-owned reasoning effort identifier. */
+  readonly reasoningEffort?: string
+  /** Positive per-request output cap. */
+  readonly maxTokens?: number
+}
+
 /** Identifies the implicit team rooted at one top-level Session. */
 export type TeamId = Branded<'TeamId'>
 
@@ -147,6 +165,11 @@ export interface SpawnTeammateRequest {
   readonly prompt: ContentBlock[]
   readonly context: 'fresh' | 'fork'
   readonly provider: string
+  /**
+   * Route bound to the child at creation. Omitted fields inherit the Lead's
+   * request header, which is the behaviour when no caller supplies a value.
+   */
+  readonly agentOptions?: TeamSpawnRoute
   readonly signal: AbortSignal
 }
 

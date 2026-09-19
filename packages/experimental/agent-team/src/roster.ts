@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { foldSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
@@ -286,6 +286,11 @@ export class TeamRoster {
         request: {
           prompt: request.prompt,
           parent: root,
+          // The team-facing route mirrors `AgentOptions`; the adapter brand on
+          // `reasoningEffort` is applied here, inside the Host package.
+          ...request.agentOptions === undefined
+            ? {}
+            : { agentOptions: request.agentOptions as AgentOptions },
         },
         signal,
       })

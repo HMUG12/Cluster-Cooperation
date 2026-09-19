@@ -2,11 +2,23 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
 import { TeamTaskId } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { TeamMemberView } from '@deepseek-ai/dsh-experimental-agent-team'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
+
+/**
+ * Structural view of the optional cluster route source. A composition that
+ * mounts `@deepseek-ai/dsh-cluster-config` binds every spawned teammate to its
+ * declared provider and model; a composition without it keeps the inherited
+ * Lead route. The lookup stays structural so this package owns no dependency
+ * on a Cluster Cooperation package.
+ */
+interface ClusterRouteSource {
+  defaultClusterName(): string
+  routeFor(clusterName: string, memberName: string): AgentOptions | undefined
+}
 
 /** Cordis plugin name. */
 export const name = 'tool-agent-team'
@@ -155,6 +167,25 @@ function callingAgent(agent: Agent | undefined, toolName: string): Agent {
   return agent
 }
 
+/**
+ * Resolve the route declared for one teammate name, when a cluster route source
+ * is mounted. Absence of the service, or of a declared route for that name,
+ * leaves the child on the Lead's inherited route.
+ * @param ctx - context that may carry the optional cluster route source.
+ * @param name - model-facing teammate name submitted with the spawn request.
+ * @returns the declared route, or undefined to inherit.
+ */
+function configuredRoute(ctx: Context, name: string): AgentOptions | undefined {
+  const source = (ctx as unknown as { get(key: string): unknown }).get('clusterConfig') as ClusterRouteSource | undefined
+  if (source === undefined || typeof source.routeFor !== 'function') return undefined
+  try {
+    return source.routeFor(source.defaultClusterName(), name)
+  } catch {
+    // An unreadable or absent cluster document must not block delegation.
+    return undefined
+  }
+}
+
 /** Register the complete Team tool set in one exact Agent scope. */
 function install(agent: Agent, ctx: Context, config: Required<Config>): () => void {
   const scoped = agent.ctx
@@ -184,6 +215,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
       async execute(args, exec) {
         const agent = callingAgent(exec.agent, 'spawn_teammate')
         const context = args.context ?? 'fresh'
+        const agentOptions = configuredRoute(ctx, args.name.trim())
         return await ctx.agentTeams.spawnTeammate(agent, {
           name: args.name,
           description: args.description,
@@ -193,6 +225,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
           ],
           context,
           provider: context === 'fork' ? config.forkProvider : config.freshProvider,
+          ...agentOptions === undefined ? {} : { agentOptions },
           signal: exec.signal,
         })
       },

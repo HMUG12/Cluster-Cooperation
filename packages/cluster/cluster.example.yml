@@ -1,0 +1,71 @@
+# Cluster Cooperation example document.
+#
+# Point the cluster-config plugin at this file with `config.file`, or copy it to
+# `$DSH_HOME/cluster.yml` (or `<cwd>/cluster.yml`) to pick it up automatically.
+#
+# Routes name a provider registered on `ctx.llm`. Add multi-vendor routes with
+# `@deepseek-ai/dsh-llm-pi-ai`, which speaks openai-completions,
+# openai-responses, and anthropic-messages.
+
+version: 1
+defaultCluster: default
+
+models:
+  planner:
+    provider: deepseek-official
+    model: deepseek-chat
+    description: Strong reasoning for planning and architecture.
+  coder:
+    provider: deepseek-official
+    model: deepseek-chat
+    description: Bulk implementation work.
+  critic:
+    provider: deepseek-official
+    model: deepseek-chat
+    description: Deliberately a different route so review is not self-referential.
+  cheap:
+    provider: deepseek-official
+    model: deepseek-chat
+    description: Fallback and low-stakes work.
+
+clusters:
+  default:
+    topology: mesh
+    maxConcurrency: 3
+
+    lead:
+      route: planner
+      fallback:
+        - cheap
+
+    members:
+      - name: architect
+        description: Owns structure, interfaces, and the written design.
+        context: fresh
+        model: planner
+        writeScopes:
+          - docs/
+        tokenBudget: 200000
+
+      - name: coder-backend
+        description: Implements server-side code against the agreed design.
+        context: fresh
+        model: coder
+        writeScopes:
+          - src/server/
+        tokenBudget: 400000
+
+      - name: tester
+        description: Writes and runs tests against the delivered implementation.
+        context: fresh
+        model: cheap
+        writeScopes:
+          - tests/
+        tokenBudget: 200000
+
+      - name: reviewer
+        description: Cross-vendor review of the final diff.
+        context: fresh
+        model: critic
+        writeScopes: []
+        tokenBudget: 120000
