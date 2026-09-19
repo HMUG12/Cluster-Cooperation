@@ -296,6 +296,7 @@
       "@deepseek-ai/dsh-agent-default-model": ["./packages/core/agent-default-model/src"],
       "@deepseek-ai/dsh-cluster-bundle": ["./packages/cluster/bundle/src"],
       "@deepseek-ai/dsh-cluster-config": ["./packages/cluster/config/src"],
+      "@deepseek-ai/dsh-cluster-orchestrator": ["./packages/cluster/orchestrator/src"],
       "@deepseek-ai/dsh-cluster-router": ["./packages/cluster/router/src"],
       "@deepseek-ai/dsh-agent-instructions": ["./packages/context/agent-instructions/src"],
       "@deepseek-ai/dsh-agent-loop": ["./packages/core/agent-loop/src"],

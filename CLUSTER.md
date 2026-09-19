@@ -440,6 +440,32 @@ IDE 进程环境在启动时冻结，新开 shell 看不到 `node`。`PATH` 已�
 
 ---
 
+## 11.4 M2 第一刀：依赖自动解锁（已完成）
+
+上游原文承认这个缺口：**"Task readiness never starts an owner."** —— 任务板会算出 `ready`，
+但没有任何事件告诉 owner 可以开工了，只能等它自己重新 `team_task_list`。
+
+新增包 `packages/cluster/orchestrator`（`@deepseek-ai/dsh-cluster-orchestrator`）：
+
+| 文件 | 职责 |
+|---|---|
+| `src/ready.ts` | **纯函数** `readyNotices(tasks, completedTaskId)`：一次完成事件应该唤醒哪些 owner；以及 `readyMessage()` 的消息文本 |
+| `src/index.ts` | 插件：订阅 `session/event` 过滤出 durable `team/task` 提交 → 解析 Lead 与会话 → 串行投递 `[TASK READY]` 给每个被解锁的 owner |
+
+设计要点：
+
+- **不轮询**。唤醒搭在"改变了任务板的同一个事实"上——`team/task` 的 durability commit。
+- **判定逻辑全在纯函数里**，因此规则本身可以脱离活的 Team 被测；投递层只是薄适配。
+- **幂等**：只对"刚刚完成、且在被解锁任务的 `blockedBy` 里"的完成发通知，
+  重放同一条事件、或重新读一遍没动过的板子，都不会产生第二次唤醒。
+- **串行投递**：所有投递排在一条 promise 链上，慢消息不会让后一次完成超越前一次。
+- 投递失败只记 warning，绝不让"完成任务的 turn"失败。
+
+`config.dependencyAutoUnlock` 默认 `true`；bundle 的 patch 已把它一并挂载
+（insert 顺序：agent-team → tool-agent-team → cluster-config → cluster-router → cluster-orchestrator）。
+
+---
+
 ## 12. 下一步（按优先级）
 
 1. **解开 `spawn_teammate` 的 `.prepare` 阻塞**（§10.5）。这是唯一的阻塞项，一旦解开，

@@ -35,3 +35,6 @@
 
     - id: cluster-router
       name: '@deepseek-ai/dsh-cluster-router'
+
+    - id: cluster-orchestrator
+      name: '@deepseek-ai/dsh-cluster-orchestrator'

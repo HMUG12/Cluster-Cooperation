@@ -408,6 +408,7 @@
     { "path": "./apps/desktop" },
     { "path": "./packages/cluster/config" },
     { "path": "./packages/cluster/router" },
+    { "path": "./packages/cluster/orchestrator" },
     { "path": "./packages/cluster/bundle" }
   ]
 }

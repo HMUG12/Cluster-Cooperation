@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-cluster-config": "workspace:^",
+    "@deepseek-ai/dsh-cluster-orchestrator": "workspace:^",
     "@deepseek-ai/dsh-cluster-router": "workspace:^",
     "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
     "@deepseek-ai/dsh-experimental-tool-agent-team": "workspace:^"

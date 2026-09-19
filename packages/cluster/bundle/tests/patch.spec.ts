@@ -17,6 +17,7 @@ describe('cluster bundle', () => {
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
     expect(manifest.dependencies).toMatchObject({
       '@deepseek-ai/dsh-cluster-config': 'workspace:^',
+      '@deepseek-ai/dsh-cluster-orchestrator': 'workspace:^',
       '@deepseek-ai/dsh-cluster-router': 'workspace:^',
       '@deepseek-ai/dsh-experimental-agent-team': 'workspace:^',
       '@deepseek-ai/dsh-experimental-tool-agent-team': 'workspace:^',
@@ -41,7 +42,10 @@ describe('cluster bundle', () => {
       'tool-agent-team',
       'cluster-config',
       'cluster-router',
+      'cluster-orchestrator',
     ])
     expect(inserted.find(entry => entry.id === 'cluster-router')?.name).toBe('@deepseek-ai/dsh-cluster-router')
+    expect(inserted.find(entry => entry.id === 'cluster-orchestrator')?.name)
+      .toBe('@deepseek-ai/dsh-cluster-orchestrator')
   })
 })
