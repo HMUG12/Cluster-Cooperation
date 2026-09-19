@@ -363,9 +363,56 @@ pnpm dsh --profile headless --patch ../../.dev/verify-upstream.patch.yml "<任�
 
 ---
 
-## 11. 清理与待办
+## 11. 交付与仓库状态
 
-- `.dev/` 下是本轮调试产生的脚本与日志，已加入 `.gitignore`；`build.bat` 因中文路径在 GBK 下乱码而不可用，可删。
-- 环境提示：IDE 进程环境是启动时冻结的，新开 shell 看不到 `node`；`PATH` 已用 .NET 直写注册表还原并追加
-  `%APPDATA%\npm`，**重启 IDE 后生效**。本轮所有命令都靠显式注入 PATH 运行。
-- `deepseek-harness/` 仍是外层仓库里的嵌套 git 仓库，纳管方式（submodule / subtree / 独立 fork 仓库）待定。
+### 11.1 已推送
+
+仓库 **[HMUG12/Cluster-Cooperation](https://github.com/HMUG12/Cluster-Cooperation)**，分支 `main`，HEAD 为
+`8dc9fd6919`（在 `ddefc45fbc` 上游 `dsh-0.1.6-alpha.2` 之上），远端已确认：
+
+```
+8dc9fd6919bea7395c296ffcdfa6f6b64d854d1b        HEAD
+8dc9fd6919bea7395c296ffcdfa6f6b64d854d1b        refs/heads/main
+```
+
+**仓库形态**：`Cluster-Cooperation` 本身就是 **deepseek-harness 的 fork**（保留了上游全部提交历史），
+本地 `deepseek-harness/` 的 `origin` 指向该仓库，原上游已改名为 `upstream`。
+因此后续同步上游只需 `git fetch upstream && git merge upstream/master`，
+提交 PR 也直接可用。本轮方案文档以 `CLUSTER.md` 随代码入库。
+
+提交内容：
+
+| commit | 说明 |
+|---|---|
+| `d91b227731` | `feat(cluster): declarative Agent Cluster configuration and role-based model routing` — 3 个新包 + 上游 `agentOptions` 透传 + `OPTIONAL_BUNDLES`（28 个文件） |
+| `8dc9fd6919` | 与远端 `Initial commit` 的历史合并（`-s ours`，内容以 fork 为准） |
+
+推送前门禁：`pre-commit`（lint / whitespace / vendor guard / third-party notices）与
+`pre-push`（`pnpm run typecheck`，59.8s）**全部通过**。
+
+### 11.2 本地遗留（均已被 `.gitignore` 忽略，不影响仓库）
+
+- `.dev/`：可复用的验证台（`mock-openai.mjs`、`dump-session.mjs`、三份 patch），
+  以及本轮调试产生的若干 `*.log` 与失效脚本 `build.bat`/`build.ps1`（删除时审批弹窗超时，未清理）。
+- `.dsh-home/`：本地 Harness home，内含验证用的 `cluster.yml` 与会话目录。
+- 外层目录 `E:\新创意构思\Cluster-Cooperation`（`docs/` + 嵌套的 fork 克隆）现在只是**工作区**，
+  它自身不是被推送的仓库。
+
+### 11.3 环境提示
+
+IDE 进程环境在启动时冻结，新开 shell 看不到 `node`。`PATH` 已用 .NET 直写注册表还原并追加
+`%APPDATA%\npm`，**重启 IDE 后生效**；在那之前所有命令都需显式注入
+`$env:PATH="C:\Program Files\nodejs;$env:APPDATA\npm;$env:PATH"`。
+
+---
+
+## 12. 下一步（按优先级）
+
+1. **解开 `spawn_teammate` 的 `.prepare` 阻塞**（§10.5）。这是唯一的阻塞项，一旦解开，
+   §10.1 的路由链路即可端到端验收。
+2. **M2 编排**：结构化 briefing、依赖自动解锁、轮次调度、预算与压缩、评审回路。
+3. **M3 对话 + 遥测**：广播 / 圆桌 / 辩论 / 投票；成本与轮次记账。
+4. **M4 可观测**：`dsh cluster status/tasks/agents/graph/cost` 命令族，复用上游
+   `client-ui-agent-team` 扩展 Web 集群面板。
+5. **文档补全**：3 个新包需要配 `.zh.md` 与 `README.i18n.yaml`，并跑 `pnpm run doc-sync` 过
+   Model Experience 与 Known Limitations 门禁（当前 README 已按结构写好，但双语配对未做）。
