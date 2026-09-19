@@ -363,6 +363,40 @@ pnpm dsh --profile headless --patch ../../.dev/verify-upstream.patch.yml "<任�
 
 ---
 
+### 10.7 阻塞已解开（根因：symbol 身份分裂）
+
+**根因**：`TOOL_RUNTIME_SCHEDULER` 原本用 `Symbol('…')` 定义，而 `@deepseek-ai/dsh-tools`
+在同一个进程里被**加载了两次**——插件加载器按包名走构建产物 `lib/`，CLI 自身经 tsx 走源码 `src`。
+两个模块实例各自求值一次 `Symbol()`，于是 `ToolRuntime` 实例上存的 symbol 与 agent-loop
+查表用的 symbol **身份不同**，`ctx.tools[TOOL_RUNTIME_SCHEDULER]` 恒为 `undefined`，
+报错就落在 `.prepare` 上。
+
+**证据**：在 `runGroup` 插桩后打印出 `ctx.tools` 是 `ToolRuntime` 实例，且其自有 symbol 里
+存在同名 `Symbol(@deepseek-ai/dsh-tools.scheduler)` —— **同描述、不同身份**，正是双实例特征。
+
+**修复**（1 处，1 行）：
+
+```ts
+// packages/core/tools/src/index.ts
+export const TOOL_RUNTIME_SCHEDULER: unique symbol = Symbol.for('@deepseek-ai/dsh-tools.scheduler')
+```
+
+改为全局注册表 symbol，使这条内部缝对"模块被求值多次"免疫。
+`unique symbol` 类型仍然成立（TS 允许 `Symbol.for()` 用于 `unique symbol` 声明）。
+
+**端到端验收（已通过）**：
+
+```
+cluster 补丁挂载时：  lead-model, lead-model, tester-model, lead-model, lead-model   EXIT=0
+仅上游补丁（对照）：  lead-model, lead-model, lead-model, ...                        EXIT=0
+```
+
+`cluster.yml` 中 `members[tester].route = mock-tester/tester-model`，
+队友的请求确实带上 `tester-model`；移掉 cluster 插件后队友又退回继承 Lead 模型。
+**"改 yml 的模型 → 实际调用随之改变"这条 M1 核心验收成立。**
+
+---
+
 ## 11. 交付与仓库状态
 
 ### 11.1 已推送
