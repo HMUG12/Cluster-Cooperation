@@ -185,6 +185,20 @@ clusters:
   })
 })
 
+describe('member budget', () => {
+  it('reads the budget a member declares, and nothing for a member that declares none', () => {
+    const config = new ClusterConfig(new Context(), { file: example })
+    expect(config.budgetFor('default', 'coder-backend')).toBe(400000)
+    expect(config.budgetFor('default', 'tester')).toBe(200000)
+    expect(config.budgetFor('default', 'nobody')).toBeUndefined()
+  })
+
+  it('declares no Lead budget, because the Lead owns the plan rather than a slice of it', () => {
+    const config = new ClusterConfig(new Context(), { file: example })
+    expect(config.budgetFor('default', 'lead')).toBeUndefined()
+  })
+})
+
 describe('review policy', () => {
   /** Build a one-reviewer cluster with the supplied review block. */
   function reviewDocument(review: unknown): unknown {

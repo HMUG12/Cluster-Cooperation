@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-cluster-config` 读取一份 `cluster.yml`，回答某个 cluster 声明了什么：每个成员的模型路由、每个 teammate 起步时携带的问责，以及已完成工作的评审策略。它之所以存在，是因为 Agent Teams domain 不会透过 `spawn_teammate` 传递任何模型，没有声明时每个 teammate 都会继承 Lead 的 provider 与 model。当一次部署必须把每个角色绑定到各自的 provider、model 或供应商时，请选择本包。
+`dsh-cluster-config` 读取一份 `cluster.yml`，回答某个 cluster 声明了什么：每个成员的模型路由、每个 teammate 起步时携带的问责、已完成工作的评审策略，以及成员可花费的软 token 预算。它之所以存在，是因为 Agent Teams domain 不会透过 `spawn_teammate` 传递任何模型，没有声明时每个 teammate 都会继承 Lead 的 provider 与 model。当一次部署必须把每个角色绑定到各自的 provider、model 或供应商时，请选择本包。
 
 ## 目录
 
@@ -74,7 +74,7 @@ clusters:
 
 ### 获得的功能
 
-`routeFor()` 给出某个成员的 provider 与 model。`briefingFor()` 把该成员的问责渲染成被派生的 teammate 起步时的文本，`reviewFor()` 报告评审策略。未声明问责的成员不会渲染出 briefing，因此单有路由不会改动 teammate 的提示词。
+`routeFor()` 给出某个成员的 provider 与 model。`briefingFor()` 把该成员的问责渲染成被派生的 teammate 起步时的文本，`reviewFor()` 报告评审策略，`budgetFor()` 报告成员声明的软 token 预算。未声明问责的成员不会渲染出 briefing，因此单有路由不会改动 teammate 的提示词。
 
 ### 成功与失败分别是什么样
 
@@ -135,6 +135,7 @@ clusters:
 - **不支持热重载** — 改动文档只能靠重启 profile 生效；没有文件监听，也没有仅配置的 HMR 触发器。
 - **不执行降级** — `fallbacksFor()` 会报告已声明的降级路由，但目前没有消费者；把失败请求改道到下一个路由的工作延后到遥测层。
 - **briefing 只在派生时生效** — 已在运行的 teammate 会保持它起步时拿到的那份简报。
+- **预算只报告不拦截** — `budgetFor()` 只回答成员声明了什么；由 cluster orchestrator 把它变成一条通知，没有任何东西能阻止超额花费的成员。
 - **每个 profile 只支持一个 cluster** — 调用方需显式传入 cluster 名，因此多个 cluster 并发运行的部署必须为每个 profile 配置一个 `defaultCluster`。
 
 <a id="dev-note"></a>

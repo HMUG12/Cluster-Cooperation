@@ -567,13 +567,51 @@ clusters:
 
 ---
 
+## 11.7 M2 第四刀：用量记账与预算执行（已完成）
+
+`cluster.yml` 从第一个版本起就有 member 级 `tokenBudget`，**至今没有任何消费者**——和评审回路之前的状态一模一样。
+这一刀把它变成真行为，仍然沿用"事件驱动 + 纯函数判定"的同一套骨架。
+
+落地：
+
+| 文件 | 改动 |
+|---|---|
+| `cluster/config/src/index.ts` | 新增 `budgetFor(clusterName, memberName)`（Lead 不声明预算） |
+| `cluster/orchestrator/src/spend.ts` | **新增纯模块**：`addUsage` / `billableTokens` / `overBudget` / `budgetNotices` |
+| `cluster/orchestrator/src/index.ts` | 订阅 `assistant/message` 折算花费，越线时通知成员与 Lead，新增 `budgetWatch` 配置项 |
+
+四个关键设计决定：
+
+1. **计费口径是"四种 token 之和"**。`TokenUsage` 的计数是**互斥**的：`inputTokens` 只算未命中缓存的部分，
+   缓存读写单独上报。所以 `billable = input + cacheRead + cacheWrite + output`，
+   且**刻意不用** adapter 可选的 `totalTokens`（它可能缺省）。
+2. **`overBudget` 用严格大于**。正好花完预算的成员算"在预算内"——这才是写下那个数字的人对"预算"的理解。
+3. **恰好一次靠 seq 单调性**，不靠去重集合。任务板那条规则用 `taskId::revision` 作键，
+   但花费不行：只折算 `seq` 大于该会话"上次已折算 seq"的事件，天然幂等，且不依赖会因上限被淘汰的键集合。
+4. **成员未上榜时不缓存**。teammate 的第一次用量可能在其 roster 行尚未落定时到达，
+   把这次 miss 缓存成"无预算"会永久性废掉该成员的预算，所以只有解析成功才缓存。
+
+投递策略：**成员收到收尾通知（可执行的那条），Lead 收到超额代价**，两条都是 best-effort、
+各自独立捕获异常——Lead 那条如果被拒（向自己发消息），不能连带丢掉成员那条。
+通知按**每会话一次**发送。
+
+**验证**：`packages/cluster` **47 个测试通过**（新增 10 个用量 + 2 个预算），
+`tsc -b tsconfig.host.json` EXIT=0，oxlint 0 warning 0 error，
+四项文档门禁（配对 1011 / 模型体验 295 / 链接 2011 / 折行 2035）与 `doc-standard.spec` 22 项全绿。
+
+**已知边界**：只通知不强停（没有取消成员这一轮），且每会话只通知一次——
+两条都写进了 README 的 Known Limitations。
+
+---
+
 ## 12. 下一步（按优先级）
 
-1. **解开 `spawn_teammate` 的 `.prepare` 阻塞**（§10.5）。这是唯一的阻塞项，一旦解开，
-   §10.1 的路由链路即可端到端验收。
-2. **M2 编排**：结构化 briefing、依赖自动解锁、轮次调度、预算与压缩、评审回路。
-3. **M3 对话 + 遥测**：广播 / 圆桌 / 辩论 / 投票；成本与轮次记账。
-4. **M4 可观测**：`dsh cluster status/tasks/agents/graph/cost` 命令族，复用上游
-   `client-ui-agent-team` 扩展 Web 集群面板。
-5. **文档补全**：3 个新包需要配 `.zh.md` 与 `README.i18n.yaml`，并跑 `pnpm run doc-sync` 过
-   Model Experience 与 Known Limitations 门禁（当前 README 已按结构写好，但双语配对未做）。
+1. **M2 编排收尾**：只剩轮次调度与上下文压缩策略。结构化 briefing、依赖自动解锁、评审回路、
+   用量记账与预算执行都已完成并验证。
+2. **M3 对话协议**：广播 / 圆桌 / 辩论 / 投票。这是"让 agent 集群自动对话"里尚未着手的部分，
+   也是与 OAT 差距最大的一块。
+3. **M4 可观测**：`dsh cluster status/tasks/agents/graph/cost` 命令族。用量记账（§11.7）已经把
+   `cost` 需要的数据折好了，CLI 层可以直接读；再复用上游 `client-ui-agent-team` 扩展 Web 集群面板。
+4. **纪律性提醒**：本项目反复出现的模式是"配置先声明、消费者后补"——`tokenBudget`、
+   `orchestration.review`、`briefing` 都经历过这个阶段。新增任何配置字段时，要么同批给出消费者，
+   要么在 README 的 Known Limitations 里写明它当前无人读取。

@@ -16,6 +16,7 @@ import type { TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { readyMessage, readyNotices } from './ready.ts'
 import { retryMessage, retryNotice, reviewMessage, reviewRequest } from './review.ts'
+import { addUsage, budgetNotices, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
 
 /** Cordis plugin name. */
 export const name = 'cluster-orchestrator'
@@ -29,12 +30,15 @@ export interface Config {
   readonly dependencyAutoUnlock?: boolean
   /** Whether a completed task opens the review its cluster declares. */
   readonly reviewLoop?: boolean
+  /** Whether a member past its declared token budget is told to wind down. */
+  readonly budgetWatch?: boolean
 }
 
 /** Loader schema for the cluster orchestrator. */
 export const Config: z<Config> = z.object({
   dependencyAutoUnlock: z.boolean().default(true),
   reviewLoop: z.boolean().default(true),
+  budgetWatch: z.boolean().default(true),
 })
 
 /**
@@ -45,6 +49,7 @@ export const Config: z<Config> = z.object({
 interface ClusterPolicySource {
   defaultClusterName(): string
   reviewFor(clusterName: string): { enabled: boolean; reviewer: string; maxRetries: number } | undefined
+  budgetFor(clusterName: string, memberName: string): number | undefined
 }
 
 /** Shape of one durable Team task commit read from the session log. */
@@ -81,6 +86,14 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (oldest !== undefined) seen.delete(oldest)
   }
 
+  // Spend folds from durable usage. A Session's seq is monotonic, so counting
+  // only events newer than the last fold makes the total exactly-once under
+  // replay without keeping a per-event key that could be evicted.
+  const spend = new Map<string, MemberSpend>()
+  const lastFoldedSeq = new Map<string, number>()
+  const resolvedBudget = new Map<string, { readonly name: string; readonly limit: number } | null>()
+  const notified = new Set<string>()
+
   const policy = (): ClusterPolicySource | undefined =>
     (ctx as unknown as { get(key: string): unknown }).get('clusterConfig') as ClusterPolicySource | undefined
 
@@ -101,6 +114,14 @@ export function apply(ctx: Context, config: Config = {}): void {
       content: [{ type: 'text', text }],
       signal: controller.signal,
     })
+  }
+
+  const tryDeliver = async (lead: Agent, target: string, text: string): Promise<void> => {
+    try {
+      await deliver(lead, target, text)
+    } catch (error: unknown) {
+      ctx.logger.warn('cluster-orchestrator: notice to "%s" failed: %s', target, String(error))
+    }
   }
 
   const wakeReleased = async (lead: Agent, tasks: readonly TeamTaskView[], completedTaskId: string): Promise<void> => {
@@ -140,13 +161,90 @@ export function apply(ctx: Context, config: Config = {}): void {
   ): Promise<void> => {
     const notice = retryNotice(tasks, taskId, maxRetries)
     if (notice === undefined) return
-    await deliver(lead, notice.exhausted ? 'lead' : notice.ownerName, retryMessage(notice, taskId))
+    await tryDeliver(lead, notice.exhausted ? 'lead' : notice.ownerName, retryMessage(notice, taskId))
+  }
+
+  /**
+   * Resolve the budget declared for one session's member, once.
+   *
+   * A session that is not on the roster yet is left unresolved rather than
+   * cached as unbudgeted: a teammate's first usage can arrive while its roster
+   * row is still settling, and caching that miss would silently disable the
+   * budget for the member's whole life.
+   */
+  const resolveBudget = (
+    lead: Agent,
+    sessionId: string,
+    source: ClusterPolicySource,
+  ): { readonly name: string; readonly limit: number } | undefined => {
+    const cached = resolvedBudget.get(sessionId)
+    if (cached !== undefined) return cached ?? undefined
+    try {
+      const member = ctx.agentTeams.listMembers(lead).find(entry => String(entry.id) === sessionId)
+      if (member === undefined) return undefined
+      const limit = source.budgetFor(source.defaultClusterName(), member.name)
+      const declared = limit === undefined ? null : { name: member.name, limit }
+      resolvedBudget.set(sessionId, declared)
+      return declared ?? undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  /** Tell a member that overspent, and its Lead, exactly once per Session. */
+  const watchBudget = async (lead: Agent, sessionId: string, source: ClusterPolicySource): Promise<void> => {
+    if (notified.has(sessionId)) return
+    const record = spend.get(sessionId)
+    if (record === undefined) return
+    const declared = resolveBudget(lead, sessionId, source)
+    if (declared === undefined || !overBudget(record, declared.limit)) return
+    notified.add(sessionId)
+    const notices = budgetNotices(declared.name, record, declared.limit)
+    // The member notice is the actionable one; a refused Lead notice must not
+    // cost it, so both are best-effort and one failure cannot hide the other.
+    await tryDeliver(lead, declared.name, notices.member)
+    await tryDeliver(lead, 'lead', notices.lead)
+  }
+
+  /**
+   * Fold one durable model call into its session's spend, then test the budget.
+   *
+   * Only `assistant/message` carries `TokenUsage`, and it is recorded once per
+   * settled call, so this is the whole usage signal the harness exposes.
+   */
+  const foldSpend = (sessionId: string, event: SessionEvent): void => {
+    if (event.type !== 'assistant/message' || config.budgetWatch === false) return
+    if (event.seq <= (lastFoldedSeq.get(sessionId) ?? -1)) return
+    lastFoldedSeq.set(sessionId, event.seq)
+    const { usage } = event.data
+    if (usage === undefined) return
+    const attribution = event.data.message.source as { readonly provider?: string; readonly model?: string }
+    const route: SpendRoute = {
+      ...attribution.provider === undefined ? {} : { provider: attribution.provider },
+      ...attribution.model === undefined ? {} : { model: attribution.model },
+    }
+    spend.set(sessionId, addUsage(spend.get(sessionId) ?? emptySpend(sessionId), usage, route))
+    tail = tail.then(async () => {
+      try {
+        const lead = resolveLead(sessionId)
+        if (lead === undefined) return
+        const cluster = policy()
+        if (cluster === undefined) return
+        await watchBudget(lead, sessionId, cluster)
+      } catch (error: unknown) {
+        ctx.logger.warn('cluster-orchestrator: budget watch failed: %s', String(error))
+      }
+    })
   }
 
   ctx.on('session/event', (session, event) => {
+    const sessionId = String(session.id)
+    if (event.type === 'assistant/message') {
+      foldSpend(sessionId, event)
+      return
+    }
     if (!isTeamTaskEvent(event)) return
     const task = event.data.task
-    const sessionId = String(session.id)
     const key = `${sessionId}::${String(task.id)}::${task.revision}`
     if (seen.has(key)) return
     remember(key)

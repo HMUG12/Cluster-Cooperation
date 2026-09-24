@@ -189,6 +189,16 @@ export class ClusterConfig extends Service {
   }
 
   /**
+   * Read the soft token budget declared for one member.
+   * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
+   * @param memberName - model-facing member name. A Lead declares no budget.
+   * @returns the declared budget, or undefined when the member declares none.
+   */
+  budgetFor(clusterName: string, memberName: string): number | undefined {
+    return this.member(clusterName, memberName)?.tokenBudget
+  }
+
+  /**
    * Read the review policy that governs completed work.
    * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
    * @returns the enabled review policy, or undefined when review is off.

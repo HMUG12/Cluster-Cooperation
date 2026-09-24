@@ -1,5 +1,5 @@
 ---
-description: "Keeps the shared Team task board moving: wake released owners, and review completed work against a retry budget."
+description: "Keeps the shared Team task board moving: wake released owners, review completed work against a retry budget, and keep member spend inside what the cluster declares."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-cluster-orchestrator` applies the board policy its cluster declares. The Agent Teams domain records `blockedBy` edges and reports `ready`, but it never notifies anybody, and a completed task says nothing about whether the work was good. This plugin closes both gaps from the same durable `team/task` commit: a completion wakes the owners it released, and it opens the review the cluster declared, counting rejections until the retry budget is spent.
+`dsh-cluster-orchestrator` applies the board and budget policy its cluster declares. The Agent Teams domain records `blockedBy` edges and reports `ready`, but it never notifies anybody, a completed task says nothing about whether the work was good, and a declared `tokenBudget` is read by nothing at all. This plugin closes all three gaps from the durable log: a completion wakes the owners it released, it opens the review the cluster declared, and every settled model call folds into the spend that budget is measured against.
 
 ## Table of Contents
 
@@ -33,18 +33,22 @@ Mount it alongside the Team domain and `@deepseek-ai/dsh-cluster-config`:
   config:
     dependencyAutoUnlock: true
     reviewLoop: true
+    budgetWatch: true
 ```
 
 | Field | Default | Meaning |
 |---|---|---|
 | `dependencyAutoUnlock` | `true` | Whether a completed blocker wakes the released task's owner. |
 | `reviewLoop` | `true` | Whether a completed task opens the review its cluster declares. |
+| `budgetWatch` | `true` | Whether a member past its declared token budget is told to wind down. |
 
 ### What you get
 
 When a shared task reaches `completed`, every `pending` task that names it as a blocker, has an owner, and has no remaining open blocker receives one durable `[TASK READY]` message. The same completion also opens `Review: <subject>` for the reviewer declared in `cluster.yml`, assigns it to that member, and delivers `[REVIEW]`.
 
 A task that comes back from a rejection is counted through the reviews opened for it: below `maxRetries` the owner receives `[RETRY k/max]`, and at the budget the Lead receives `[ESCALATE]` instead of another round.
+
+Every durable model call also folds into its session's spend. A member that goes past the `tokenBudget` its cluster declares is told once to finish what is in flight and report, and the Lead is told what the overrun cost.
 
 ### What success and failure look like
 
@@ -62,11 +66,12 @@ A released owner starts working without the Lead polling the board. A completion
 |---|---|
 | [`src/ready.ts`](src/ready.ts) | Readiness arithmetic and the wake-up text |
 | [`src/review.ts`](src/review.ts) | Review request, rejection counting, and both verdict texts |
+| [`src/spend.ts`](src/spend.ts) | Usage folding, budget verdicts, and both budget notices |
 | [`src/index.ts`](src/index.ts) | Plugin: event subscription, roster resolution, queued delivery |
 
-The plugin subscribes to `session/event` and filters the durable `team/task` commit rather than polling, so every wake-up rides the same fact that changed the board. All decisions live in the two pure modules, which is why both rules are covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later completion overtake it. Replay suppression keys on `taskId::revision`: a revision identifies one board state, so a replayed event is ignored while any genuine mutation gets through.
+The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
 
-The refusal conditions matter as much as the rules. A review is never opened for a review, for the reviewer's own work, or for a completion that already has one — the last guard is what makes replay safe.
+Replay suppression differs per rule because the right key differs: the board keys on `taskId::revision`, while spend folds only events newer than the last folded `seq` for that session. Both make a replayed event a no-op without keeping state that could drift, and the refusal conditions matter as much as the rules — a review is never opened for a review, for the reviewer's own work, or for a completion that already has one.
 
 </details>
 
@@ -76,7 +81,7 @@ The refusal conditions matter as much as the rules. A review is never opened for
 ## Further Exploration
 
 - [Agent Teams](../../experimental/agent-team/README.md) — the roster, mailbox, and task board this plugin reads.
-- [`cluster-config`](../config/README.md) — declares the reviewer and retry budget.
+- [`cluster-config`](../config/README.md) — declares the reviewer, the retry budget, and each member's token budget.
 - [`cluster-bundle`](../bundle/README.md) — the profile layer that mounts all three.
 
 -----
@@ -88,7 +93,7 @@ The refusal conditions matter as much as the rules. A review is never opened for
 
 #### What the model sees
 
-One durable user-role message per board decision, delivered to the member that must act. Every text names the task id, the action, and the budget when one applies; the Lead receives no notice for its own tasks, and a member with nothing to act on receives nothing. The fixed texts are owned by [`src/ready.ts`](src/ready.ts) and [`src/review.ts`](src/review.ts):
+One durable user-role message per decision, delivered to the member that must act. Every text names the task or the member, the action, and the budget when one applies; the Lead receives no notice about its own tasks, and a member with nothing to act on receives nothing. The fixed texts are owned by [`src/ready.ts`](src/ready.ts), [`src/review.ts`](src/review.ts), and [`src/spend.ts`](src/spend.ts):
 
 ##### Verbatim text for this field, when needed
 
@@ -98,7 +103,7 @@ One durable user-role message per board decision, delivered to the member that m
 
 #### Token effect
 
-Conditional and driven by the board: zero tokens until a completion, a release, or a rejection, then one short message per affected member, retained in the recipient's history like any other peer message.
+Conditional and driven by the log: zero tokens until a completion, a release, a rejection, or a budget crossing, then one short message per affected member, retained in the recipient's history like any other peer message.
 
 #### KV Cache effect
 
@@ -109,9 +114,10 @@ Append-only for the recipient: each notice is appended after the reusable reques
 <a id="known-limitations-and-deferred-work"></a>
 
 - **Wake-up only** — a notice is a message, not a claim. The owner still has to call `team_task_get` and `team_task_update`, so a member that ignores its mailbox stalls the edge.
+- **Budget notice, not a hard stop** — an over-budget member is asked to wind down once per Session and nothing cancels its turn, so a member that ignores the notice keeps spending.
 - **Review verdicts ride the board** — approval is completing the review task and rejection is reopening the reviewed one. A reviewer that does neither leaves the review open forever.
 - **Completed-only trigger** — reopening a completed task does not re-notify, and a new blocker added after a completion is not replayed.
-- **No budget or round control** — turn scheduling, token budgets, and compaction policy are not part of this package.
+- **No round control** — turn scheduling, per-round caps, and compaction policy are not part of this package.
 
 <a id="dev-note"></a>
 ### Dev Note
@@ -119,6 +125,6 @@ Append-only for the recipient: each notice is appended after the reusable reques
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
-Keep the pure modules pure: they are the only reason both rules have coverage without a live Team.
+Keep the pure modules pure: they are the only reason every rule has coverage without a live Team.
 
 </details>

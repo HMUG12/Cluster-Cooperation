@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-cluster-config` reads one `cluster.yml` document and answers what a cluster declared: per-member model routes, the accountability each teammate starts with, and the review policy for completed work. It exists because the Agent Teams domain threads no model through `spawn_teammate`, so without a declaration every teammate inherits the Lead's provider and model. Choose it when a deployment must bind each role to its own provider, model, or vendor.
+`dsh-cluster-config` reads one `cluster.yml` document and answers what a cluster declared: per-member model routes, the accountability each teammate starts with, the review policy for completed work, and the soft token budget a member may spend. It exists because the Agent Teams domain threads no model through `spawn_teammate`, so without a declaration every teammate inherits the Lead's provider and model. Choose it when a deployment must bind each role to its own provider, model, or vendor.
 
 ## Table of Contents
 
@@ -74,7 +74,7 @@ A `route` (or `model`) value is either an alias under `models` or an inline `{ p
 
 ### What you get
 
-`routeFor()` answers the provider and model for one member. `briefingFor()` renders that member's accountability into the text a spawned teammate starts with, and `reviewFor()` reports the review policy. A member that declares no accountability renders no briefing, so a route alone changes nothing about the teammate's prompt.
+`routeFor()` answers the provider and model for one member. `briefingFor()` renders that member's accountability into the text a spawned teammate starts with, `reviewFor()` reports the review policy, and `budgetFor()` reports the soft token budget a member declared. A member that declares no accountability renders no briefing, so a route alone changes nothing about the teammate's prompt.
 
 ### What success and failure look like
 
@@ -135,6 +135,7 @@ Independent for routes: the package writes no request content. A briefing is app
 - **No hot reload** — a document edit is picked up only by restarting the profile; there is no file watcher or config-only HMR trigger.
 - **No fallback execution** — `fallbacksFor()` reports declared fallbacks but nothing consumes them yet; routing a failed request to the next route is deferred to the telemetry layer.
 - **Briefing applies at spawn only** — an already-running teammate keeps the brief it started with.
+- **Budget reporting only** — `budgetFor()` answers what a member declared; the cluster orchestrator turns that into a notice, and nothing stops a member that overspends it.
 - **One cluster per profile** — callers pass a cluster name explicitly, so a deployment running several clusters concurrently must configure one `defaultCluster` per profile.
 
 <a id="dev-note"></a>
