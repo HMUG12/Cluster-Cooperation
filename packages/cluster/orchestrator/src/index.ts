@@ -14,8 +14,8 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-experimental-agent-team'
 import type { TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import { readyMessage, readyNotices } from './ready.ts'
-import { retryMessage, retryNotice, reviewMessage, reviewRequest } from './review.ts'
+import { readyMessage, readyNotices, releaseDecision } from './ready.ts'
+import { retryMessage, retryNotice, reviewMessage, reviewRequest, type ReviewRequest } from './review.ts'
 import { addUsage, budgetNotices, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
 
 /** Cordis plugin name. */
@@ -124,20 +124,13 @@ export function apply(ctx: Context, config: Config = {}): void {
     }
   }
 
-  const wakeReleased = async (lead: Agent, tasks: readonly TeamTaskView[], completedTaskId: string): Promise<void> => {
-    for (const notice of readyNotices(tasks, completedTaskId)) {
+  const wakeReleased = async (lead: Agent, tasks: readonly TeamTaskView[], releasedTaskId: string): Promise<void> => {
+    for (const notice of readyNotices(tasks, releasedTaskId)) {
       await deliver(lead, notice.ownerName, readyMessage(notice))
     }
   }
 
-  const openReview = async (
-    lead: Agent,
-    tasks: readonly TeamTaskView[],
-    completedTaskId: string,
-    reviewer: string,
-  ): Promise<void> => {
-    const request = reviewRequest(tasks, completedTaskId, reviewer)
-    if (request === undefined) return
+  const openReview = async (lead: Agent, request: ReviewRequest): Promise<void> => {
     const created = await ctx.agentTeams.createTask(lead, {
       subject: request.subject,
       description: request.description,
@@ -253,18 +246,27 @@ export function apply(ctx: Context, config: Config = {}): void {
         const lead = resolveLead(sessionId)
         if (lead === undefined) return
         const tasks = ctx.agentTeams.listTasks(lead)
-        if (config.dependencyAutoUnlock !== false && task.status === 'completed') {
-          await wakeReleased(lead, tasks, String(task.id))
-        }
-        if (config.reviewLoop === false) return
+        const taskId = String(task.id)
         const source = policy()
-        if (source === undefined) return
-        const review = source.reviewFor(source.defaultClusterName())
+        const review = config.reviewLoop === false || source === undefined
+          ? undefined
+          : source.reviewFor(source.defaultClusterName())
+        // A completion that still owes a review is not the fact downstream work
+        // waits for: the verdict is. Computing the request once keeps the
+        // release decision and the task that actually gets opened reading the
+        // same board.
+        const request = review === undefined || task.status !== 'completed'
+          ? undefined
+          : reviewRequest(tasks, taskId, review.reviewer)
+        if (config.dependencyAutoUnlock !== false && task.status === 'completed') {
+          const released = releaseDecision(tasks, taskId, request !== undefined)
+          if (released !== undefined) await wakeReleased(lead, tasks, released)
+        }
         if (review === undefined) return
-        if (task.status === 'completed') {
-          await openReview(lead, tasks, String(task.id), review.reviewer)
-        } else {
-          await countRejection(lead, tasks, String(task.id), review.maxRetries)
+        if (request !== undefined) {
+          await openReview(lead, request)
+        } else if (task.status !== 'completed') {
+          await countRejection(lead, tasks, taskId, review.maxRetries)
         }
       } catch (error: unknown) {
         ctx.logger.warn('cluster-orchestrator: board coordination failed: %s', String(error))

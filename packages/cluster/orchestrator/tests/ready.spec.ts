@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
-import { readyMessage, readyNotices } from '../src/ready.ts'
+import { readyMessage, readyNotices, releaseDecision } from '../src/ready.ts'
 
 /** Build one board row with only the fields readiness reads. */
 function task(
@@ -97,5 +97,41 @@ describe('readyMessage', () => {
     expect(message).toContain('task-1 completed')
     expect(message).toContain('team_task_get task-2')
     expect(message).toContain('team_task_update task-2')
+  })
+})
+
+describe('releaseDecision', () => {
+  /** Build the review row this loop would have opened for one task. */
+  function review(id: string, reviewedId: string): TeamTaskView {
+    return {
+      ...task(id, 'completed'),
+      subject: `Review: subject-${reviewedId}`,
+      description: `cluster-review-of: ${reviewedId}`,
+    } as TeamTaskView
+  }
+
+  it('releases dependents immediately when no review is owed', () => {
+    expect(releaseDecision([task('task-1', 'completed')], 'task-1', false)).toBe('task-1')
+  })
+
+  it('withholds the release while a review is still owed', () => {
+    expect(releaseDecision([task('task-1', 'completed')], 'task-1', true)).toBeUndefined()
+  })
+
+  it('releases the reviewed task dependents when its review completes', () => {
+    const board = [
+      task('task-1', 'completed', [], 'coder'),
+      review('task-2', 'task-1'),
+      task('task-3', 'pending', ['task-1'], 'tester'),
+    ]
+    // The delivery itself releases nothing once a review is owed...
+    expect(releaseDecision(board, 'task-1', true)).toBeUndefined()
+    // ...and the approval is what finally opens the downstream edge.
+    expect(releaseDecision(board, 'task-2', false)).toBe('task-1')
+    expect(readyNotices(board, 'task-1').map(notice => notice.taskId)).toEqual(['task-3'])
+  })
+
+  it('rejects a completion the board does not carry', () => {
+    expect(releaseDecision([task('task-1', 'pending')], 'task-9', false)).toBeUndefined()
   })
 })

@@ -44,7 +44,7 @@ Mount it alongside the Team domain and `@deepseek-ai/dsh-cluster-config`:
 
 ### What you get
 
-When a shared task reaches `completed`, every `pending` task that names it as a blocker, has an owner, and has no remaining open blocker receives one durable `[TASK READY]` message. The same completion also opens `Review: <subject>` for the reviewer declared in `cluster.yml`, assigns it to that member, and delivers `[REVIEW]`.
+When a shared task reaches `completed`, every `pending` task that names it as a blocker, has an owner, and has no remaining open blocker receives one durable `[TASK READY]` message. The same completion also opens `Review: <subject>` for the reviewer declared in `cluster.yml`, assigns it to that member, and delivers `[REVIEW]`. A completion that still owes a review wakes nobody: its dependents wait for the verdict, and completing the review is what releases them.
 
 A task that comes back from a rejection is counted through the reviews opened for it: below `maxRetries` the owner receives `[RETRY k/max]`, and at the budget the Lead receives `[ESCALATE]` instead of another round.
 
@@ -116,6 +116,7 @@ Append-only for the recipient: each notice is appended after the reusable reques
 - **Wake-up only** — a notice is a message, not a claim. The owner still has to call `team_task_get` and `team_task_update`, so a member that ignores its mailbox stalls the edge.
 - **Budget notice, not a hard stop** — an over-budget member is asked to wind down once per Session and nothing cancels its turn, so a member that ignores the notice keeps spending.
 - **Review verdicts ride the board** — approval is completing the review task and rejection is reopening the reviewed one. A reviewer that does neither leaves the review open forever.
+- **Dependents wait on the verdict** — because a reviewed completion releases nobody, a reviewer that never approves leaves everything downstream of that task blocked, and only an operator or the Lead can break the tie.
 - **Completed-only trigger** — reopening a completed task does not re-notify, and a new blocker added after a completion is not replayed.
 - **No round control** — turn scheduling, per-round caps, and compaction policy are not part of this package.
 

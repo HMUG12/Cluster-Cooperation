@@ -10,6 +10,7 @@
  */
 
 import type { TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
+import { reviewedTaskOf } from './review.ts'
 
 /** One owner that must be told a task just became claimable. */
 export interface ReadyNotice {
@@ -81,4 +82,29 @@ export function readyMessage(notice: ReadyNotice): string {
     `team_task_update ${notice.taskId} with action "claim" using that revision,`,
     'and report the outcome to the Lead.',
   ].join(' ')
+}
+
+/**
+ * Decide which task's dependents one completion releases.
+ *
+ * A completion that still owes a review releases nothing: its dependents wait
+ * for the verdict, because a review that gates no work gates nothing. What
+ * releases them is the *review* completing, so downstream work waits on the
+ * approval rather than on the delivery it is supposed to be checking.
+ *
+ * @param tasks - complete current board, including the completed task.
+ * @param completedTaskId - the task that just transitioned to completed.
+ * @param reviewOwed - whether this completion still owes a review.
+ * @returns the task whose dependents to wake, or undefined when none is due yet.
+ */
+export function releaseDecision(
+  tasks: readonly TeamTaskView[],
+  completedTaskId: string,
+  reviewOwed: boolean,
+): string | undefined {
+  const completed = tasks.find(task => String(task.id) === completedTaskId)
+  if (completed === undefined) return undefined
+  const reviewed = reviewedTaskOf(completed)
+  if (reviewed !== undefined) return reviewed
+  return reviewOwed ? undefined : completedTaskId
 }

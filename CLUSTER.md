@@ -602,6 +602,28 @@ clusters:
 **已知边界**：只通知不强停（没有取消成员这一轮），且每会话只通知一次——
 两条都写进了 README 的 Known Limitations。
 
+## 11.8 M2 第五刀：评审裁决成为解锁闸门（已完成）
+
+之前的行为有个语义漏洞：任务一到 `completed` 就唤醒下游，**评审形同虚设**——
+下游在裁决出来之前就开工了。这一刀把"释放下游"的事实从"交付"改成"裁决"。
+
+实现只有两处：`ready.ts` 新增纯函数 `releaseDecision(tasks, completedTaskId, reviewOwed)`，
+`index.ts` 在唤醒前先判断"这次完成是否仍欠评审"。规则三条：
+
+- 完成事件**仍欠评审** → 谁都不唤醒（下游等裁决）；
+- **评审任务完成**（即批准）→ 反查 `reviewedTaskOf`，唤醒**被审任务**的下游；
+- 未启用评审（`reviewLoop: false`）→ 维持原样，立刻唤醒。
+
+顺带把 `openReview` 的签名从"自己算 request"改成"接收已算好的 request"：这样
+"释放判定"与"实际开出的评审任务"读的是同一块板子，不会各自算出不同结论。
+
+**验证**：`packages/cluster` **51 个测试通过**（`ready.spec.ts` 新增 4 个，含一条
+"交付不释放 / 批准才释放"的组合断言），`tsc -b tsconfig.host.json` EXIT=0，
+四项文档门禁（配对 1011 / 模型体验 295 / 链接 2011 / 折行 2035）全绿。
+
+**已知边界**：始终不批准的 reviewer 会让下游永久阻塞，只能靠人工或 Lead 打破——
+已写进 README 的 Known Limitations。
+
 ---
 
 ## 12. 下一步（按优先级）
