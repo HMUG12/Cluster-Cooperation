@@ -51,6 +51,16 @@ clusters:
         description: Implements server-side code against the agreed design.
         context: fresh
         model: coder
+        mission: Turn the agreed interface into working server-side code.
+        deliverables:
+          - Implementation under src/server/
+          - Unit tests covering the new endpoints
+        definitionOfDone:
+          - The design document's interface is implemented without signature drift
+          - Every new endpoint has at least one test that fails before the change
+        qualityBar:
+          - No new lint or type errors
+          - Handlers stay free of direct filesystem access
         writeScopes:
           - src/server/
         tokenBudget: 400000

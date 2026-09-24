@@ -466,6 +466,65 @@ IDE 进程环境在启动时冻结，新开 shell 看不到 `node`。`PATH` 已�
 
 ---
 
+## 11.5 M2 第二刀：结构化 briefing（已完成）
+
+OAT 的核心机制之一是"结构化任务派发"——`spawn_agent` 不是传一句话，而是传
+`mission / deliverables / definition_of_done / quality_bar`。dsh 的 `spawn_teammate`
+只有 `name / description / prompt`，这些约束**每次派发都要靠 Lead 重新打一遍**，且很容易漏。
+
+这一刀把它变成**配置即契约**：写进 `cluster.yml` 一次，每次派生都自动带上。
+
+`cluster.yml` 新增四个可选字段（member 级）：
+
+```yaml
+- name: coder-backend
+  model: coder
+  mission: Turn the agreed interface into working server-side code.
+  deliverables:
+    - Implementation under src/server/
+    - Unit tests covering the new endpoints
+  definitionOfDone:
+    - The design document's interface is implemented without signature drift
+  qualityBar:
+    - No new lint or type errors
+```
+
+落点：
+
+| 文件 | 改动 |
+|---|---|
+| `cluster/config/src/briefing.ts` | **新增纯函数** `renderBriefing({clusterName, member})` |
+| `cluster/config/src/document.ts` | 成员的 allowed keys 增加 4 项并读取 |
+| `cluster/config/src/index.ts` | 新增 `briefingFor(clusterName, memberName)` |
+| `experimental/tool-agent-team/src/index.ts` | `configuredRoute` 升级为 `configuredMember`，把 briefing 插在**身份提醒之后、模型任务之前** |
+
+**关键语义决定**（由测试逼出来的）：briefing 的判据是**问责**
+（`mission` / `deliverables` / `definitionOfDone` / `qualityBar` 至少有一项），
+而被写作用域和 token 预算只是"顺带"——只声明后两者的成员**不产生 briefing 块**，
+保持"队友拿到的就是 Lead 原样那句任务"的既有行为。这条规则写进了 `renderBriefing` 的契约注释。
+
+渲染形状：
+
+```
+<cluster-briefing member="coder-backend" cluster="default">
+Mission: …
+Deliverables:
+- …
+Definition of done:
+- …
+Quality bar:
+- …
+Advisory write scopes: src/server/
+Token budget: 400000
+</cluster-briefing>
+```
+
+**验证**：`packages/cluster` **21 个测试通过**（其中 4 个覆盖 briefing：完整渲染、
+只声明路由或 Lead 时静默、省略未声明小节、非字符串数组要报错），
+`tool-agent-team` 的 **22 个测试全部通过**（身份前缀契约未被破坏）。
+
+---
+
 ## 12. 下一步（按优先级）
 
 1. **解开 `spawn_teammate` 的 `.prepare` 阻塞**（§10.5）。这是唯一的阻塞项，一旦解开，

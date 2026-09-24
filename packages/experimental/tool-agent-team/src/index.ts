@@ -18,6 +18,15 @@ import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 interface ClusterRouteSource {
   defaultClusterName(): string
   routeFor(clusterName: string, memberName: string): AgentOptions | undefined
+  briefingFor(clusterName: string, memberName: string): string | undefined
+}
+
+/** Route and briefing declared for one teammate name, when a source is mounted. */
+interface ConfiguredMember {
+  /** Route bound to the child at creation, or undefined to inherit. */
+  readonly agentOptions?: AgentOptions
+  /** Accountability text prepended to the child's initial task. */
+  readonly briefing?: string
 }
 
 /** Cordis plugin name. */
@@ -168,21 +177,27 @@ function callingAgent(agent: Agent | undefined, toolName: string): Agent {
 }
 
 /**
- * Resolve the route declared for one teammate name, when a cluster route source
- * is mounted. Absence of the service, or of a declared route for that name,
- * leaves the child on the Lead's inherited route.
- * @param ctx - context that may carry the optional cluster route source.
+ * Resolve what one teammate name declares, when a cluster source is mounted.
+ * Absence of the service, or of a declaration for that name, leaves the child
+ * on the Lead's inherited route with the Lead's own task text.
+ * @param ctx - context that may carry the optional cluster source.
  * @param name - model-facing teammate name submitted with the spawn request.
- * @returns the declared route, or undefined to inherit.
+ * @returns the declared route and briefing.
  */
-function configuredRoute(ctx: Context, name: string): AgentOptions | undefined {
+function configuredMember(ctx: Context, name: string): ConfiguredMember {
   const source = (ctx as unknown as { get(key: string): unknown }).get('clusterConfig') as ClusterRouteSource | undefined
-  if (source === undefined || typeof source.routeFor !== 'function') return undefined
+  if (source === undefined) return {}
   try {
-    return source.routeFor(source.defaultClusterName(), name)
+    const cluster = source.defaultClusterName()
+    const agentOptions = typeof source.routeFor === 'function' ? source.routeFor(cluster, name) : undefined
+    const briefing = typeof source.briefingFor === 'function' ? source.briefingFor(cluster, name) : undefined
+    return {
+      ...agentOptions === undefined ? {} : { agentOptions },
+      ...briefing === undefined ? {} : { briefing },
+    }
   } catch {
     // An unreadable or absent cluster document must not block delegation.
-    return undefined
+    return {}
   }
 }
 
@@ -215,17 +230,19 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
       async execute(args, exec) {
         const agent = callingAgent(exec.agent, 'spawn_teammate')
         const context = args.context ?? 'fresh'
-        const agentOptions = configuredRoute(ctx, args.name.trim())
+        const memberName = args.name.trim()
+        const member = configuredMember(ctx, memberName)
         return await ctx.agentTeams.spawnTeammate(agent, {
           name: args.name,
           description: args.description,
           prompt: [
-            { type: 'text', text: `<system-reminder>\nYou are teammate "${args.name.trim()}".\n</system-reminder>\n\n` },
-            { type: 'text', text: args.prompt },
+            { type: 'text' as const, text: `<system-reminder>\nYou are teammate "${memberName}".\n</system-reminder>\n\n` },
+            ...member.briefing === undefined ? [] : [{ type: 'text' as const, text: `${member.briefing}\n\n` }],
+            { type: 'text' as const, text: args.prompt },
           ],
           context,
           provider: context === 'fork' ? config.forkProvider : config.freshProvider,
-          ...agentOptions === undefined ? {} : { agentOptions },
+          ...member.agentOptions === undefined ? {} : { agentOptions: member.agentOptions },
           signal: exec.signal,
         })
       },

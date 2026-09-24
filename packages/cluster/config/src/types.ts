@@ -38,6 +38,14 @@ export interface MemberSpec {
   readonly writeScopes?: string[]
   /** Soft token budget for one member run. */
   readonly tokenBudget?: number
+  /** What this member is accountable for, stated once for every delegation. */
+  readonly mission?: string
+  /** Concrete artifacts the member must produce. */
+  readonly deliverables?: string[]
+  /** Conditions that make the member's work acceptable to the Lead. */
+  readonly definitionOfDone?: string[]
+  /** The bar the Lead will review against, beyond mere completion. */
+  readonly qualityBar?: string[]
   /** Primary route for this member. */
   readonly route?: RouteSpec
   /** Ordered routes tried after {@link route}. */

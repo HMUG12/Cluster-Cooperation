@@ -133,3 +133,54 @@ clusters:
     expect(config.filePath).toContain('cluster-does-not-exist.yml')
   })
 })
+
+describe('member briefing', () => {
+  it('renders the declared accountability of a member as one block', () => {
+    const briefing = new ClusterConfig(new Context(), { file: example })
+      .briefingFor('default', 'coder-backend')
+    expect(briefing).toBeDefined()
+    expect(briefing).toContain('<cluster-briefing member="coder-backend" cluster="default">')
+    expect(briefing).toContain('Mission: Turn the agreed interface into working server-side code.')
+    expect(briefing).toContain('Deliverables:\n- Implementation under src/server/')
+    expect(briefing).toContain('Definition of done:\n- ')
+    expect(briefing).toContain('Quality bar:\n- ')
+    expect(briefing).toContain('Advisory write scopes: src/server/')
+    expect(briefing).toContain('Token budget: 400000')
+    expect(briefing?.endsWith('</cluster-briefing>')).toBe(true)
+  })
+
+  it('stays silent for a member that declares only a route, and for the Lead', () => {
+    const config = new ClusterConfig(new Context(), { file: example })
+    expect(config.briefingFor('default', 'tester')).toBeUndefined()
+    expect(config.briefingFor('default', 'lead')).toBeUndefined()
+    expect(config.briefingFor('default', 'nobody')).toBeUndefined()
+  })
+
+  it('omits sections a member does not declare', () => {
+    const config = mount(`
+version: 1
+models:
+  base: { provider: p, model: m }
+clusters:
+  solo:
+    topology: star
+    lead: {}
+    members:
+      - name: minimal
+        model: base
+        mission: Keep one thing in mind.
+`)
+    const briefing = config.briefingFor('solo', 'minimal')
+    expect(briefing).toContain('Mission: Keep one thing in mind.')
+    expect(briefing).not.toContain('Deliverables:')
+    expect(briefing).not.toContain('Token budget:')
+  })
+
+  it('rejects a briefing list that is not an array of strings', () => {
+    expect(() => readClusterDocument({
+      version: 1,
+      models: { base: { provider: 'p', model: 'm' } },
+      clusters: { solo: { topology: 'star', members: [{ name: 'x', model: 'base', deliverables: 'one thing' }] } },
+    }, 'bad.yml')).toThrow(/deliverables/)
+  })
+})

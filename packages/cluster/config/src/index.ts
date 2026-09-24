@@ -15,6 +15,7 @@ import z from '@deepseek-ai/schemastery'
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { parse } from 'yaml'
+import { renderBriefing } from './briefing.ts'
 import { readClusterDocument } from './document.ts'
 import type { ClusterDocument, ClusterSpec, MemberSpec, RouteSpec } from './types.ts'
 
@@ -173,6 +174,18 @@ export class ClusterConfig extends Service {
     const cluster = this.cluster(clusterName)
     const routes = memberName === 'lead' ? cluster.lead.fallback : cluster.members.find(entry => entry.name === memberName)?.fallback
     return (routes ?? []).map(selection)
+  }
+
+  /**
+   * Render the accountability a spawned member starts with.
+   * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
+   * @param memberName - model-facing member name. The Lead declares no briefing.
+   * @returns the briefing text, or undefined when the member declares none.
+   */
+  briefingFor(clusterName: string, memberName: string): string | undefined {
+    const member = this.member(clusterName, memberName)
+    if (member === undefined) return undefined
+    return renderBriefing({ clusterName, member })
   }
 }
 

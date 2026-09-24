@@ -207,7 +207,11 @@ function readMemberSpec(
 ): MemberSpec | undefined {
   const record = requireObject(value, path, issues)
   if (record === undefined) return undefined
-  rejectUnknown(record, ['name', 'description', 'context', 'writeScopes', 'tokenBudget', 'route', 'model', 'fallback'], path, issues)
+  rejectUnknown(record, [
+    'name', 'description', 'context', 'writeScopes', 'tokenBudget',
+    'mission', 'deliverables', 'definitionOfDone', 'qualityBar',
+    'route', 'model', 'fallback',
+  ], path, issues)
   const name = optionalString(record, 'name', path, issues)
   if (name === undefined) return undefined
   const context = optionalString(record, 'context', path, issues)
@@ -218,14 +222,22 @@ function readMemberSpec(
   const route = routeSource === undefined ? undefined : readRoute(routeSource, `${path}.route`, models, issues)
   const fallback = readRouteList(record['fallback'], `${path}.fallback`, models, issues)
   const description = optionalString(record, 'description', path, issues)
+  const mission = optionalString(record, 'mission', path, issues)
   const writeScopes = optionalStringList(record, 'writeScopes', path, issues)
   const tokenBudget = optionalNumber(record, 'tokenBudget', path, issues)
+  const deliverables = optionalStringList(record, 'deliverables', path, issues)
+  const definitionOfDone = optionalStringList(record, 'definitionOfDone', path, issues)
+  const qualityBar = optionalStringList(record, 'qualityBar', path, issues)
   return {
     name,
     ...description === undefined ? {} : { description },
+    ...mission === undefined ? {} : { mission },
     ...context === undefined || !CONTEXTS.includes(context) ? {} : { context: context as 'fresh' | 'fork' },
     ...writeScopes === undefined ? {} : { writeScopes },
     ...tokenBudget === undefined ? {} : { tokenBudget },
+    ...deliverables === undefined ? {} : { deliverables },
+    ...definitionOfDone === undefined ? {} : { definitionOfDone },
+    ...qualityBar === undefined ? {} : { qualityBar },
     ...route === undefined ? {} : { route },
     ...fallback === undefined ? {} : { fallback },
   }
