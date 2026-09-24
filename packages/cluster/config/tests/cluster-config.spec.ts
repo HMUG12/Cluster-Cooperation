@@ -184,3 +184,80 @@ clusters:
     }, 'bad.yml')).toThrow(/deliverables/)
   })
 })
+
+describe('review policy', () => {
+  /** Build a one-reviewer cluster with the supplied review block. */
+  function reviewDocument(review: unknown): unknown {
+    return {
+      version: 1,
+      models: { base: { provider: 'p', model: 'm' } },
+      clusters: {
+        solo: {
+          topology: 'star',
+          members: [
+            { name: 'coder', model: 'base' },
+            { name: 'reviewer', model: 'base' },
+          ],
+          orchestration: { review },
+        },
+      },
+    }
+  }
+
+  it('reads the shipped example, which reviews every completion twice at most', () => {
+    const config = new ClusterConfig(new Context(), { file: example })
+    expect(config.reviewFor()).toEqual({ enabled: true, reviewer: 'reviewer', maxRetries: 2 })
+  })
+
+  it('is absent when the cluster declares no orchestration, or switches it off', () => {
+    const bare = mount(`
+version: 1
+models:
+  base: { provider: p, model: m }
+clusters:
+  solo:
+    topology: star
+    members:
+      - name: coder
+        model: base
+`)
+    expect(bare.reviewFor('solo')).toBeUndefined()
+
+    const off = mount(`
+version: 1
+models:
+  base: { provider: p, model: m }
+clusters:
+  solo:
+    topology: star
+    members:
+      - name: coder
+        model: base
+    orchestration:
+      review:
+        enabled: false
+        reviewer: coder
+        maxRetries: 1
+`)
+    expect(off.reviewFor('solo')).toBeUndefined()
+  })
+
+  it('rejects a reviewer that is not a declared member of the same cluster', () => {
+    expect(() => readClusterDocument(reviewDocument({ reviewer: 'nobody' }), 'bad.yml'))
+      .toThrow(/not a declared member/)
+  })
+
+  it('rejects a retry budget that is not a non-negative integer', () => {
+    for (const maxRetries of [-1, 1.5, 'two']) {
+      expect(() => readClusterDocument(reviewDocument({ reviewer: 'reviewer', maxRetries }), 'bad.yml'))
+        .toThrow(/maxRetries/)
+    }
+  })
+
+  it('rejects an unknown key under orchestration', () => {
+    expect(() => readClusterDocument({
+      version: 1,
+      clusters: { solo: { topology: 'star', members: [], orchestration: { consensus: {} } } },
+    }, 'bad.yml')).toThrow(/orchestration.consensus/)
+  })
+})

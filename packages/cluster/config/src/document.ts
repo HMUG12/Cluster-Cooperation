@@ -14,6 +14,8 @@ import {
   type LeadSpec,
   type MemberSpec,
   type ModelSpec,
+  type OrchestrationSpec,
+  type ReviewSpec,
   type RouteSpec,
 } from './types.ts'
 
@@ -101,6 +103,14 @@ function optionalStringList(record: Record<string, unknown>, key: string, path: 
   if (value === undefined) return undefined
   if (Array.isArray(value) && value.every(entry => typeof entry === 'string')) return value as string[]
   issues.add(`${path}.${key}`, 'expected an array of strings')
+  return undefined
+}
+
+function optionalBoolean(record: Record<string, unknown>, key: string, path: string, issues: IssueBuilder): boolean | undefined {
+  const value = record[key]
+  if (value === undefined) return undefined
+  if (typeof value === 'boolean') return value
+  issues.add(`${path}.${key}`, 'expected a boolean')
   return undefined
 }
 
@@ -243,6 +253,59 @@ function readMemberSpec(
   }
 }
 
+/**
+ * Read the review policy. A reviewer must be a declared member of the same
+ * cluster: an unknown name would silently open review tasks for a teammate that
+ * does not exist, which is exactly the kind of typo this reader exists to catch.
+ * @param value - raw `orchestration.review` value.
+ * @param path - field path used in diagnostics.
+ * @param issues - issue accumulator.
+ * @param memberNames - members declared by the owning cluster.
+ * @returns the review policy, or undefined when the block is absent.
+ */
+function readReviewSpec(
+  value: unknown,
+  path: string,
+  issues: IssueBuilder,
+  memberNames: readonly string[],
+): ReviewSpec | undefined {
+  if (value === undefined) return undefined
+  const record = requireObject(value, path, issues)
+  if (record === undefined) return undefined
+  rejectUnknown(record, ['enabled', 'reviewer', 'maxRetries'], path, issues)
+  const reviewer = optionalString(record, 'reviewer', path, issues)
+  if (reviewer === undefined) {
+    issues.add(`${path}.reviewer`, 'required: name the declared member that reviews completed work')
+  } else if (!memberNames.includes(reviewer)) {
+    issues.add(`${path}.reviewer`, `"${reviewer}" is not a declared member of this cluster`)
+  }
+  const maxRetries = optionalNumber(record, 'maxRetries', path, issues)
+  if (maxRetries !== undefined && (!Number.isInteger(maxRetries) || maxRetries < 0)) {
+    issues.add(`${path}.maxRetries`, 'expected a non-negative integer')
+  }
+  const enabled = optionalBoolean(record, 'enabled', path, issues) ?? true
+  if (reviewer === undefined && memberNames.length === 0) return undefined
+  return {
+    enabled,
+    reviewer: reviewer ?? '',
+    maxRetries: maxRetries === undefined || !Number.isInteger(maxRetries) ? 0 : maxRetries,
+  }
+}
+
+function readOrchestrationSpec(
+  value: unknown,
+  path: string,
+  issues: IssueBuilder,
+  memberNames: readonly string[],
+): OrchestrationSpec | undefined {
+  if (value === undefined) return undefined
+  const record = requireObject(value, path, issues)
+  if (record === undefined) return undefined
+  rejectUnknown(record, ['review'], path, issues)
+  const review = readReviewSpec(record['review'], `${path}.review`, issues, memberNames)
+  return { ...review === undefined ? {} : { review } }
+}
+
 function readClusterSpec(
   value: unknown,
   name: string,
@@ -252,7 +315,7 @@ function readClusterSpec(
 ): ClusterSpec | undefined {
   const record = requireObject(value, path, issues)
   if (record === undefined) return undefined
-  rejectUnknown(record, ['topology', 'maxConcurrency', 'lead', 'members'], path, issues)
+  rejectUnknown(record, ['topology', 'maxConcurrency', 'lead', 'members', 'orchestration'], path, issues)
   const rawTopology = record['topology'] ?? 'mesh'
   const topology = typeof rawTopology === 'string' && TOPOLOGIES.includes(rawTopology)
     ? rawTopology as ClusterTopology
@@ -270,12 +333,19 @@ function readClusterSpec(
       if (member !== undefined) members.push(member)
     }
   }
+  const orchestration = readOrchestrationSpec(
+    record['orchestration'],
+    `${path}.orchestration`,
+    issues,
+    members.map(member => member.name),
+  )
   return {
     name,
     topology: topology ?? 'mesh',
     ...maxConcurrency === undefined ? {} : { maxConcurrency },
     lead,
     members,
+    ...orchestration === undefined ? {} : { orchestration },
   }
 }
 

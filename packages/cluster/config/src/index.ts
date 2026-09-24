@@ -17,7 +17,7 @@ import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { parse } from 'yaml'
 import { renderBriefing } from './briefing.ts'
 import { readClusterDocument } from './document.ts'
-import type { ClusterDocument, ClusterSpec, MemberSpec, RouteSpec } from './types.ts'
+import type { ClusterDocument, ClusterSpec, MemberSpec, ReviewSpec, RouteSpec } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -186,6 +186,17 @@ export class ClusterConfig extends Service {
     const member = this.member(clusterName, memberName)
     if (member === undefined) return undefined
     return renderBriefing({ clusterName, member })
+  }
+
+  /**
+   * Read the review policy that governs completed work.
+   * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
+   * @returns the enabled review policy, or undefined when review is off.
+   */
+  reviewFor(clusterName: string = this.defaultClusterName()): ReviewSpec | undefined {
+    const review = this.cluster(clusterName).orchestration?.review
+    if (review === undefined || !review.enabled || review.reviewer.length === 0) return undefined
+    return review
   }
 }
 

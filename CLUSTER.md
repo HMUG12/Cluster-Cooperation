@@ -525,6 +525,53 @@ Token budget: 400000
 
 ---
 
+## 11.6 M2 第三刀：评审回路（已完成）
+
+配置里早就声明了 `orchestration.review`，但一直是空头支票——**"完成的活没人把关"**：
+任务一旦 completed 就被当成交付，Lead 只能自己再读一遍 diff。
+
+现在它变成真行为，仍然是事件驱动 + 纯函数判定。
+
+`cluster.yml`：
+
+```yaml
+clusters:
+  default:
+    orchestration:
+      review:
+        enabled: true
+        reviewer: reviewer   # 必须是本 cluster 已声明的成员
+        maxRetries: 2        # 被驳回几次后升级给 Lead
+```
+
+两条规则（都挂在同一个 durable `team/task` 提交上）：
+
+1. **完成即送审**：非评审任务一旦 `completed`，自动建一个评审任务
+   （`Review: <原标题>`、`cluster-review-of: <taskId>` 标记、继承被审任务的写作用域），
+   由 Lead 身份 `reassign` 给配置的 reviewer，并投递 `[REVIEW]` 通知。
+2. **驳回即计数**：当某任务重新变成非 completed 状态、且它已有评审记录时，
+   驳回次数 = **为它开过的评审任务数**（板上即全部状态，不需要隐藏计数器）。
+   未超预算投 `[RETRY k/max]` 给原 owner；超预算投 `[ESCALATE]` 给 Lead，不再自动重试。
+
+四条**刻意的拒绝条件**（都在 `reviewRequest()` 里）：
+
+- 不评审"评审任务"本身（否则无限递归）；
+- 不评审 reviewer 自己的产出（自审没有意义）；
+- 同一完成事件已有评审记录时不再重复开（这是事件重放安全的保证）；
+- 未配置 reviewer / `enabled: false` 时整条规则不生效。
+
+**幂等键用的是 `taskId::revision`**——revision 每次变更自增，所以事件重放会被抑制，
+而任何真实变更都能通过；集合有上限（512）避免无界增长。
+
+落地：`cluster/config/src/document.ts`（`orchestration.review` 解析 + 交叉校验 reviewer
+必须是本 cluster 声明过的成员）、`cluster/config/src/index.ts`（`reviewFor()`）、
+`cluster/orchestrator/src/review.ts`（新增纯函数 `reviewRequest` / `retryNotice` / 三个渲染器）、
+`cluster/orchestrator/src/index.ts`（接线）。
+
+**验证**：`packages/cluster` **35 个测试通过**（新增 9 个评审回路 + 5 个评审配置）。
+
+---
+
 ## 12. 下一步（按优先级）
 
 1. **解开 `spawn_teammate` 的 `.prepare` 阻塞**（§10.5）。这是唯一的阻塞项，一旦解开，

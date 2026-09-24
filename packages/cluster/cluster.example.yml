@@ -33,6 +33,12 @@ clusters:
     topology: mesh
     maxConcurrency: 3
 
+    orchestration:
+      review:
+        enabled: true
+        reviewer: reviewer
+        maxRetries: 2
+
     lead:
       route: planner
       fallback:

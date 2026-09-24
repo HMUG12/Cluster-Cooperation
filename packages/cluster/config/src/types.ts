@@ -72,6 +72,27 @@ export interface ClusterSpec {
   readonly lead: LeadSpec
   /** Delegated workers. */
   readonly members: MemberSpec[]
+  /** Coordination policy applied to the task board. */
+  readonly orchestration?: OrchestrationSpec
+}
+
+/** Cross-task coordination policy for one cluster. */
+export interface OrchestrationSpec {
+  /** Independent review of completed work. */
+  readonly review?: ReviewSpec
+}
+
+/** Policy for reviewing completed tasks before the Lead accepts them. */
+export interface ReviewSpec {
+  /** Whether a completed task opens a review task for {@link reviewer}. */
+  readonly enabled: boolean
+  /** Declared member name that reviews completed work. Never the task's own owner. */
+  readonly reviewer: string
+  /**
+   * How many rejections a task may collect before the cluster escalates to the
+   * Lead instead of opening another review.
+   */
+  readonly maxRetries: number
 }
 
 /** Complete parsed `cluster.yml`. */
