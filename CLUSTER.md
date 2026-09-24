@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 |---|---|
-| 上游 commit | `ddefc45fbc7f8e46dd73185e68295696d1297887`（2026-09-17, `dsh-0.1.6-alpha.2`） |
+| 上游基线 | `dsh-0.1.6-alpha.2`（2026-09-17 的发布合并提交） |
 | 本地路径 | `deepseek-harness/`（工作区子树） |
 | 工具链 | Node **v24.21.0**（`C:\Program Files\nodejs`，未进 PATH）/ npm 11.19.0 / **pnpm 11.7.0**（`%APPDATA%\npm`）/ git 2.45.1 |
 | 安装 | `pnpm install` ✅ 12m52s |
@@ -401,13 +401,8 @@ cluster 补丁挂载时：  lead-model, lead-model, tester-model, lead-model, le
 
 ### 11.1 已推送
 
-仓库 **[HMUG12/Cluster-Cooperation](https://github.com/HMUG12/Cluster-Cooperation)**，分支 `main`，HEAD 为
-`8dc9fd6919`（在 `ddefc45fbc` 上游 `dsh-0.1.6-alpha.2` 之上），远端已确认：
-
-```
-8dc9fd6919bea7395c296ffcdfa6f6b64d854d1b        HEAD
-8dc9fd6919bea7395c296ffcdfa6f6b64d854d1b        refs/heads/main
-```
+仓库 **[HMUG12/Cluster-Cooperation](https://github.com/HMUG12/Cluster-Cooperation)**，分支 `main`，
+基线为上游 `dsh-0.1.6-alpha.2` 发布提交。推送状态随时变化，以仓库的提交列表为准。
 
 **仓库形态**：`Cluster-Cooperation` 本身就是 **deepseek-harness 的 fork**（保留了上游全部提交历史），
 本地 `deepseek-harness/` 的 `origin` 指向该仓库，原上游已改名为 `upstream`。
@@ -418,8 +413,8 @@ cluster 补丁挂载时：  lead-model, lead-model, tester-model, lead-model, le
 
 | commit | 说明 |
 |---|---|
-| `d91b227731` | `feat(cluster): declarative Agent Cluster configuration and role-based model routing` — 3 个新包 + 上游 `agentOptions` 透传 + `OPTIONAL_BUNDLES`（28 个文件） |
-| `8dc9fd6919` | 与远端 `Initial commit` 的历史合并（`-s ours`，内容以 fork 为准） |
+| `feat(cluster): declarative Agent Cluster configuration and role-based model routing` | 3 个新包 + 上游 `agentOptions` 透传 + `OPTIONAL_BUNDLES`（28 个文件） |
+| `chore: join the Cluster-Cooperation initial commit` | 与远端初始提交的历史合并（`-s ours`，内容以 fork 为准） |
 
 推送前门禁：`pre-commit`（lint / whitespace / vendor guard / third-party notices）与
 `pre-push`（`pnpm run typecheck`，59.8s）**全部通过**。

@@ -1,5 +1,5 @@
 ---
-description: "Binds each Agent Team member to the provider and model its cluster role declares."
+description: "Binds the Lead Agent to the provider and model its cluster role declares."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-cluster-router` gives every Agent Team member the model its role declares. `spawn_teammate` accepts a name, description, prompt, context mode, and provider, but no model, and the child-Agent default inherits the parent's route. This package closes that gap by installing an Agent-scoped model selection at publication time.
+`dsh-cluster-router` binds the Team Lead to the model its cluster role declares. The Lead is created by a profile entry point before any Team exists, so nothing else can give it a route: the plugin reads `cluster.yml` and installs an Agent-scoped model selection as the Lead is published. Teammates take the other path — the patched `spawn_teammate` passes their declared route at creation, because a teammate's creation event never reaches this plugin.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ English | [中文](README.zh.md)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
 - [Model Experience](#model-experience)
-- [Known Limitations and Deferred Work](#known-limited-and-deferred-work)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
 
 -----
@@ -40,11 +40,11 @@ Mount it after `@deepseek-ai/dsh-cluster-config` and the Agent Teams domain:
 
 ### What you get
 
-Each published Agent that the Team domain recognizes as the Lead or as a declared teammate receives a route derived from `cluster.yml`. An Agent outside the Team, or a teammate with no declared route, keeps its inherited model and logs one warning naming the member and cluster.
+The Lead receives the route declared at `clusters.<name>.lead`. A member that declares no route keeps its inherited model and logs one warning naming the member and cluster.
 
 ### What success and failure look like
 
-A member with a declared route uses that provider and model from its first request. A route that names an unregistered provider fails at `llm.prepareCall`, not here, because provider registration belongs to the adapter layer.
+The Lead uses its declared provider and model from its first request. A route that names an unregistered provider fails at `llm.prepareCall`, not here, because provider registration belongs to the adapter layer.
 
 -----
 
@@ -56,7 +56,7 @@ A member with a declared route uses that provider and model from its first reque
 
 The plugin subscribes to `agent/created`, asks `ctx.agentTeams.tryMembership(agent)` for the member name, resolves the configured route, and installs `installModelSelection(agent.ctx, ref)` from `@deepseek-ai/dsh-agent`. Disposal runs on `agent/disposed` and through one `ctx.effect()` for plugin teardown.
 
-`agent/created` is the only safe window: AgentLoop awaits its serial listeners before starting queued work, so the selection is in place before the member's first prompt assembly. Installing at a later event would race the first request. `installModelSelection` routes through the `agent/request` waterfall, which runs before `llm.prepareCall`; touching `llm/stream` instead is rejected by the harness as an altered prepared call.
+`agent/created` is the only safe window: AgentLoop awaits its serial listeners before starting queued work, so the selection is in place before the first prompt assembly. `installModelSelection` routes through the `agent/request` waterfall, which runs before `llm.prepareCall`; touching `llm/stream` instead is rejected by the harness as an altered prepared call.
 
 </details>
 
@@ -67,7 +67,7 @@ The plugin subscribes to `agent/created`, asks `ctx.agentTeams.tryMembership(age
 
 - [`cluster-config`](../config/README.md) — the document this plugin reads.
 - [`agent/model-selection`](../../core/agent/src/model-selection.ts) — the scoped selection installer.
-- [Agent Teams](../../experimental/agent-team/README.md) — the roster and membership authority.
+- [`cluster-orchestrator`](../orchestrator/README.md) — the other consumer of this configuration.
 
 -----
 
@@ -78,11 +78,11 @@ The plugin subscribes to `agent/created`, asks `ctx.agentTeams.tryMembership(age
 
 #### What the model sees
 
-None, as this package contributes no prompt section, tool schema, or message text. A provider or model change made through the selection appends the shared `[model changed: ...]` notice owned by `@deepseek-ai/dsh-agent`, not by this package.
+This package contributes no prompt section, tool schema, or message text. A provider or model change made through the selection appends the shared `[model changed: ...]` notice owned by `@deepseek-ai/dsh-agent`, not by this package.
 
 #### Token effect
 
-Zero direct token effect. It changes which model serves the member's requests.
+Zero direct token effect. It changes which model serves the Lead's requests.
 
 #### KV Cache effect
 
@@ -90,11 +90,11 @@ Independent: the plugin writes no request content. Because every member on the s
 
 ## Known Limitations and Deferred Work
 
-<a id="known-limited-and-deferred-work"></a>
+<a id="known-limitations-and-deferred-work"></a>
 
+- **Lead only** — a teammate's creation event never reaches this plugin, so teammate routes are applied by `spawn_teammate` at creation instead. A teammate spawned outside that tool keeps the inherited model.
 - **No fallback execution** — declared fallback routes are read but never applied; a failing primary route does not fail over yet.
 - **No mid-run switching** — the selection is installed once at publication. Nothing re-reads the document, so a route change needs a restart.
-- **Member names must match** — routing is keyed on the spawned teammate name, so `spawn_teammate` with a name absent from `cluster.yml` silently keeps the inherited model (with one warning).
 - **One cluster per profile** — the cluster name comes from configuration, so concurrent teams with different route tables are deferred.
 
 <a id="dev-note"></a>

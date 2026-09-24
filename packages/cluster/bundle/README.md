@@ -17,7 +17,7 @@ English | [中文](README.zh.md)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
 - [Model Experience](#model-experience)
-- [Known Limitations and Deferred Work](#known-limited-and-deferred-work)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
 
 -----
@@ -35,7 +35,7 @@ The profile must already contain `@deepseek-ai/dsh-base`, whose Subagent service
 
 ### What you get
 
-The patch disables `tool-subagent-control`, `tool-subagent-list-agents`, `tool-subagent`, and `tool-subagent-fork`, then inserts the Team service, the Team tool set, `@deepseek-ai/dsh-cluster-config`, and `@deepseek-ai/dsh-cluster-router`.
+The patch disables `tool-subagent-control`, `tool-subagent-list-agents`, `tool-subagent`, and `tool-subagent-fork`, then inserts the Team service, the Team tool set, `@deepseek-ai/dsh-cluster-config`, `@deepseek-ai/dsh-cluster-router`, and `@deepseek-ai/dsh-cluster-orchestrator`.
 
 -----
 
@@ -47,7 +47,7 @@ The patch disables `tool-subagent-control`, `tool-subagent-list-agents`, `tool-s
 
 | File | Role |
 |---|---|
-| [`cordis.patch.yml`](cordis.patch.yml) | Ordered patch over `dsh-base`: four disables, then four inserts |
+| [`cordis.patch.yml`](cordis.patch.yml) | Ordered patch over `dsh-base`: four disables, then five inserts |
 | [`src/index.ts`](src/index.ts) | Empty module entry; the patch is the runtime content |
 
 The disables are required rather than cosmetic: the Team tools re-use the legacy tool names `send_message`, `list_agents`, and `interrupt_agent`, so a composition that keeps both registrations serves the legacy definitions to Team members.
@@ -84,12 +84,12 @@ Prefix-stable while the patch, the configured routes, and the Team identity rema
 
 ## Known Limitations and Deferred Work
 
-<a id="known-limited-and-deferred-work"></a>
+<a id="known-limitations-and-deferred-work"></a>
 
 - **Not a standalone profile** — the patch targets row ids and Subagent providers supplied by `dsh-base`.
 - **Opt-in only** — no shipped profile enables this layer; it is applied with `--patch` or added to an initialized profile.
 - **Shared checkout** — every teammate sees the same working directory; this bundle adds no worktree isolation or filesystem locking.
-- **No orchestration policy yet** — structured briefings, dependency auto-unlock, and budget enforcement are not part of this layer.
+- **Incomplete orchestration policy** — dependency auto-unlock and the review loop are in place, while turn scheduling, budgets, and compaction policy are not part of this layer.
 
 <a id="dev-note"></a>
 ### Dev Note

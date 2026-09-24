@@ -1,5 +1,5 @@
 ---
-description: "Declarative Agent Cluster configuration: reusable model routes, members, and topology read from one cluster.yml document."
+description: "Declarative Agent Cluster configuration: reusable model routes, members, accountability, and review policy read from one cluster.yml document."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-cluster-config` reads one `cluster.yml` document and answers per-member model routes. It exists because the Agent Teams domain threads no model through `spawn_teammate`: without a declared route, every teammate inherits the Lead's provider and model. Choose it when a deployment must bind each role to its own provider, model, or vendor.
+`dsh-cluster-config` reads one `cluster.yml` document and answers what a cluster declared: per-member model routes, the accountability each teammate starts with, and the review policy for completed work. It exists because the Agent Teams domain threads no model through `spawn_teammate`, so without a declaration every teammate inherits the Lead's provider and model. Choose it when a deployment must bind each role to its own provider, model, or vendor.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ English | [中文](README.zh.md)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
 - [Model Experience](#model-experience)
-- [Known Limitations and Deferred Work](#known-limited-and-deferred-work)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
 
 -----
@@ -49,9 +49,12 @@ version: 1
 defaultCluster: default
 models:
   planner: { provider: deepseek-official, model: deepseek-chat }
+  critic: { provider: anthropic-gateway, model: claude-opus-4 }
 clusters:
   default:
     topology: mesh
+    orchestration:
+      review: { enabled: true, reviewer: reviewer, maxRetries: 2 }
     lead:
       route: planner
       fallback: [cheap]
@@ -59,15 +62,23 @@ clusters:
       - name: reviewer
         model: critic
         context: fresh
-        writeScopes: [docs/]
+        mission: Judge delivered work against the task it claimed to satisfy.
+        deliverables: [A verdict per reviewed task]
+        definitionOfDone: [Every review ends in a claim, a reopen, or an escalation]
+        qualityBar: [A rejection names the blocking defect, not a preference]
+        writeScopes: []
         tokenBudget: 120000
 ```
 
 A `route` (or `model`) value is either an alias under `models` or an inline `{ provider, model }` object.
 
+### What you get
+
+`routeFor()` answers the provider and model for one member. `briefingFor()` renders that member's accountability into the text a spawned teammate starts with, and `reviewFor()` reports the review policy. A member that declares no accountability renders no briefing, so a route alone changes nothing about the teammate's prompt.
+
 ### What success and failure look like
 
-A valid document is cached on first access. An unknown key, an unknown alias, a wrong type, or a `defaultCluster` that names no cluster throws `ClusterConfigError` listing every offending path at once, before any route is served.
+A valid document is cached on first access. An unknown key, an unknown alias, a wrong type, a reviewer that is not a declared member, or a `defaultCluster` that names no cluster throws `ClusterConfigError` listing every offending path at once, before anything is served.
 
 -----
 
@@ -81,7 +92,8 @@ A valid document is cached on first access. An unknown key, an unknown alias, a 
 |---|---|
 | [`src/types.ts`](src/types.ts) | Document types and the accepted version constant |
 | [`src/document.ts`](src/document.ts) | Strict reader: rejects unknown keys, resolves aliases, accumulates issues |
-| [`src/index.ts`](src/index.ts) | The `ctx.clusterConfig` service, lazy load, and route lookup |
+| [`src/briefing.ts`](src/briefing.ts) | Pure rendering of one member's accountability |
+| [`src/index.ts`](src/index.ts) | The `ctx.clusterConfig` service, lazy load, and lookups |
 
 Loading is lazy so a broken document fails at the first consumer with the file path in the message, rather than during boot where the cause is harder to attribute. Validation rejects unknown keys rather than ignoring them, because a typo that silently keeps an inherited model is the exact failure this package exists to prevent.
 
@@ -92,8 +104,8 @@ Loading is lazy so a broken document fails at the first consumer with the file p
 <a id="further-exploration"></a>
 ## Further Exploration
 
-- [`cluster-router`](../router/README.md) — the consumer that installs these routes on live Agents.
-- [`cluster-bundle`](../bundle/README.md) — the profile layer that mounts both.
+- [`cluster-router`](../router/README.md) — the consumer that binds the Lead to these routes.
+- [`cluster-orchestrator`](../orchestrator/README.md) — the consumer that reads the review policy.
 - [`llm-pi-ai`](../../llm/llm-pi-ai/README.md) — declares OpenAI-compatible and Anthropic-compatible provider routes.
 
 -----
@@ -105,15 +117,15 @@ Loading is lazy so a broken document fails at the first consumer with the file p
 
 #### What the model sees
 
-None, as this package contributes no prompt section, no tool schema, and no message text. It only answers which provider and model another plugin should bind to an Agent.
+This package contributes no prompt section, tool schema, or message text of its own. Its briefing rendering is delivered by the patched `spawn_teammate`, which prepends the brief between the teammate's identity reminder and the Lead's task.
 
 #### Token effect
 
-Zero direct token effect. The selected route changes which model receives requests and therefore which prompt prefix is cached, but this package adds no content to any request.
+Zero direct token effect for routes. A declared briefing adds one block to each spawned teammate's first request and follows ordinary history afterwards.
 
 #### KV Cache effect
 
-Independent: the package writes no request content, so it neither preserves nor invalidates a reusable prefix by itself. Changing a member's route changes the provider or model for that member's later requests.
+Independent for routes: the package writes no request content. A briefing is appended after the teammate identity prefix, so it extends the teammate's first request rather than replacing the reusable prefix.
 
 ## Known Limitations and Deferred Work
 
@@ -121,8 +133,9 @@ Independent: the package writes no request content, so it neither preserves nor 
 
 - **No sampling parameters** — `AgentOptions` carries only `provider`, `model`, `reasoningEffort`, and `maxTokens`, so `temperature` and similar fields cannot be bound per member and must be set on the adapter route instead.
 - **No hot reload** — a document edit is picked up only by restarting the profile; there is no file watcher or config-only HMR trigger.
-- **No fallback execution** — `fallbacksFor()` reports declared fallbacks but nothing consumes them yet; routing a failed request to the next route is deferred to the telemetry and orchestration layers.
-- **No per-cluster selection from the Lead session** — callers pass a cluster name explicitly, so a deployment running several clusters concurrently must configure one `defaultCluster` per profile.
+- **No fallback execution** — `fallbacksFor()` reports declared fallbacks but nothing consumes them yet; routing a failed request to the next route is deferred to the telemetry layer.
+- **Briefing applies at spawn only** — an already-running teammate keeps the brief it started with.
+- **One cluster per profile** — callers pass a cluster name explicitly, so a deployment running several clusters concurrently must configure one `defaultCluster` per profile.
 
 <a id="dev-note"></a>
 ### Dev Note
