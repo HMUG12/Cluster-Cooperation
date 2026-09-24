@@ -624,6 +624,23 @@ clusters:
 **已知边界**：始终不批准的 reviewer 会让下游永久阻塞，只能靠人工或 Lead 打破——
 已写进 README 的 Known Limitations。
 
+## 11.9 M2 第六刀：声明期一致性校验（已完成）
+
+`document.ts` 的模块注释写着它存在的理由是"让拼写错误在加载期失败而不是静默路由到错误的模型"，
+但有三处静默歧义漏网：
+
+1. **`tokenBudget` / `maxConcurrency` 未做正整数校验**。`tokenBudget: 0` 或负数会被接受，
+   而 §11.7 的判定是 `billable > budget`——于是该成员**第一次调用就越线**。
+   也就是说这一刀护住的正是刚做出来的功能。
+2. **重复成员名**。路由、briefing、预算全部**按名解析**，重名时静默落到第一行，
+   第二行声明的模型意图被无声丢弃。
+3. **`enabled: false` 仍强制要求 reviewer**。关掉评审反而比打开评审更难写。
+
+三处都在 `readClusterDocument` 内修掉，并新增 4 个测试覆盖：0/-1/1.5/`'many'` 四种非法预算、
+重名成员、非正整数并发上限、以及"显式关闭评审可以不写 reviewer"。
+
+**验证**：`packages/cluster` **55 个测试通过**（config 19 → 23），`tsc -b tsconfig.host.json` EXIT=0。
+
 ---
 
 ## 12. 下一步（按优先级）

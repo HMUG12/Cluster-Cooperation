@@ -235,6 +235,9 @@ function readMemberSpec(
   const mission = optionalString(record, 'mission', path, issues)
   const writeScopes = optionalStringList(record, 'writeScopes', path, issues)
   const tokenBudget = optionalNumber(record, 'tokenBudget', path, issues)
+  if (tokenBudget !== undefined && (!Number.isInteger(tokenBudget) || tokenBudget <= 0)) {
+    issues.add(`${path}.tokenBudget`, 'expected a positive integer; a member with no budget to spend is over it immediately')
+  }
   const deliverables = optionalStringList(record, 'deliverables', path, issues)
   const definitionOfDone = optionalStringList(record, 'definitionOfDone', path, issues)
   const qualityBar = optionalStringList(record, 'qualityBar', path, issues)
@@ -273,17 +276,20 @@ function readReviewSpec(
   const record = requireObject(value, path, issues)
   if (record === undefined) return undefined
   rejectUnknown(record, ['enabled', 'reviewer', 'maxRetries'], path, issues)
+  // Read the switch first: a cluster that explicitly disables review owes no
+  // reviewer, and demanding one would make the off switch harder to write than
+  // the on switch.
+  const enabled = optionalBoolean(record, 'enabled', path, issues) ?? true
   const reviewer = optionalString(record, 'reviewer', path, issues)
-  if (reviewer === undefined) {
+  if (reviewer === undefined && enabled) {
     issues.add(`${path}.reviewer`, 'required: name the declared member that reviews completed work')
-  } else if (!memberNames.includes(reviewer)) {
+  } else if (reviewer !== undefined && !memberNames.includes(reviewer)) {
     issues.add(`${path}.reviewer`, `"${reviewer}" is not a declared member of this cluster`)
   }
   const maxRetries = optionalNumber(record, 'maxRetries', path, issues)
   if (maxRetries !== undefined && (!Number.isInteger(maxRetries) || maxRetries < 0)) {
     issues.add(`${path}.maxRetries`, 'expected a non-negative integer')
   }
-  const enabled = optionalBoolean(record, 'enabled', path, issues) ?? true
   if (reviewer === undefined && memberNames.length === 0) return undefined
   return {
     enabled,
@@ -322,15 +328,27 @@ function readClusterSpec(
     : undefined
   if (topology === undefined) issues.add(`${path}.topology`, `expected one of ${TOPOLOGIES.join(', ')}`)
   const maxConcurrency = optionalNumber(record, 'maxConcurrency', path, issues)
+  if (maxConcurrency !== undefined && (!Number.isInteger(maxConcurrency) || maxConcurrency <= 0)) {
+    issues.add(`${path}.maxConcurrency`, 'expected a positive integer')
+  }
   const lead = readLeadSpec(record['lead'], `${path}.lead`, models, issues)
   const members: MemberSpec[] = []
+  const declared = new Set<string>()
   const rawMembers = record['members'] ?? []
   if (!Array.isArray(rawMembers)) {
     issues.add(`${path}.members`, 'expected an array')
   } else {
     for (const [index, entry] of rawMembers.entries()) {
       const member = readMemberSpec(entry, `${path}.members[${index}]`, models, issues)
-      if (member !== undefined) members.push(member)
+      if (member === undefined) continue
+      // Routes, briefings and budgets all resolve by name, so a duplicate would
+      // quietly hand the second declaration's intent to the first row's model.
+      if (declared.has(member.name)) {
+        issues.add(`${path}.members[${index}].name`, `duplicate member "${member.name}"; the first declaration wins`)
+        continue
+      }
+      declared.add(member.name)
+      members.push(member)
     }
   }
   const orchestration = readOrchestrationSpec(

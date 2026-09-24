@@ -275,3 +275,55 @@ clusters:
     }, 'bad.yml')).toThrow(/orchestration.consensus/)
   })
 })
+
+describe('declaration coherence', () => {
+  /** Build a one-cluster document around the supplied member rows. */
+  function membersDocument(members: unknown): unknown {
+    return {
+      version: 1,
+      models: { base: { provider: 'p', model: 'm' } },
+      clusters: { solo: { topology: 'star', members } },
+    }
+  }
+
+  it('rejects a duplicate member name, which would otherwise resolve to the first row', () => {
+    expect(() => readClusterDocument(membersDocument([
+      { name: 'coder', model: 'base' },
+      { name: 'coder', route: { provider: 'other', model: 'strong' } },
+    ]), 'bad.yml')).toThrow(/duplicate member "coder"/)
+  })
+
+  it('rejects a token budget that is not a positive integer', () => {
+    for (const tokenBudget of [0, -1, 1.5, 'many']) {
+      expect(() => readClusterDocument(membersDocument([{ name: 'coder', tokenBudget }]), 'bad.yml'))
+        .toThrow(/tokenBudget/)
+    }
+  })
+
+  it('rejects a concurrency limit that is not a positive integer', () => {
+    for (const maxConcurrency of [0, -2, 1.5]) {
+      expect(() => readClusterDocument({
+        version: 1,
+        clusters: { solo: { topology: 'star', maxConcurrency, members: [{ name: 'coder' }] } },
+      }, 'bad.yml')).toThrow(/maxConcurrency/)
+    }
+  })
+
+  it('accepts a switched-off review block without naming a reviewer', () => {
+    const config = mount(`
+version: 1
+models:
+  base: { provider: p, model: m }
+clusters:
+  solo:
+    topology: star
+    members:
+      - name: coder
+        model: base
+    orchestration:
+      review:
+        enabled: false
+`)
+    expect(config.reviewFor()).toBeUndefined()
+  })
+})

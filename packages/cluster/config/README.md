@@ -78,7 +78,7 @@ A `route` (or `model`) value is either an alias under `models` or an inline `{ p
 
 ### What success and failure look like
 
-A valid document is cached on first access. An unknown key, an unknown alias, a wrong type, a reviewer that is not a declared member, or a `defaultCluster` that names no cluster throws `ClusterConfigError` listing every offending path at once, before anything is served.
+A valid document is cached on first access. An unknown key, an unknown alias, a wrong type, a reviewer that is not a declared member, a duplicate member name, a budget or concurrency limit that is not a positive integer, or a `defaultCluster` that names no cluster throws `ClusterConfigError` listing every offending path at once, before anything is served.
 
 -----
 

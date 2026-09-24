@@ -78,7 +78,7 @@ clusters:
 
 ### 成功与失败分别是什么样
 
-合法文档在首次访问时被缓存。未知键、未知别名、类型错误、不是本 cluster 已声明成员的 reviewer，或指向不存在 cluster 的 `defaultCluster`，都会抛出 `ClusterConfigError` 并一次性列出每个出错的路径，早于任何查询被服务。
+合法文档在首次访问时被缓存。未知键、未知别名、类型错误、不是本 cluster 已声明成员的 reviewer、重复的成员名、不是正整数的预算或并发上限，或指向不存在 cluster 的 `defaultCluster`，都会抛出 `ClusterConfigError` 并一次性列出每个出错的路径，早于任何查询被服务。
 
 -----
 
