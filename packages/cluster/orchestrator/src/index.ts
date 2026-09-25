@@ -16,7 +16,7 @@ import type { TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { readyMessage, readyNotices, releaseDecision } from './ready.ts'
 import { retryMessage, retryNotice, reviewMessage, reviewRequest, type ReviewRequest } from './review.ts'
-import { addUsage, budgetNotices, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
+import { addUsage, budgetNotice, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
 
 /** Cordis plugin name. */
 export const name = 'cluster-orchestrator'
@@ -154,7 +154,14 @@ export function apply(ctx: Context, config: Config = {}): void {
   ): Promise<void> => {
     const notice = retryNotice(tasks, taskId, maxRetries)
     if (notice === undefined) return
-    await tryDeliver(lead, notice.exhausted ? 'lead' : notice.ownerName, retryMessage(notice, taskId))
+    // An unowned task has no legal recipient: only a teammate may address the
+    // Lead, and the mailbox refuses a message the Lead sends to itself. Warn the
+    // operator rather than attempting a delivery that would be thrown away.
+    if (notice.ownerName.length === 0) {
+      ctx.logger.warn('cluster-orchestrator: %s was rejected %d times and has no owner to report it', taskId, notice.attempt)
+      return
+    }
+    await tryDeliver(lead, notice.ownerName, retryMessage(notice, taskId))
   }
 
   /**
@@ -192,11 +199,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     const declared = resolveBudget(lead, sessionId, source)
     if (declared === undefined || !overBudget(record, declared.limit)) return
     notified.add(sessionId)
-    const notices = budgetNotices(declared.name, record, declared.limit)
-    // The member notice is the actionable one; a refused Lead notice must not
-    // cost it, so both are best-effort and one failure cannot hide the other.
-    await tryDeliver(lead, declared.name, notices.member)
-    await tryDeliver(lead, 'lead', notices.lead)
+    await tryDeliver(lead, declared.name, budgetNotice(declared.name, record, declared.limit))
   }
 
   /**

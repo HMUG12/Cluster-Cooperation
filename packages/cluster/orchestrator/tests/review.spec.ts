@@ -126,7 +126,9 @@ describe('messages', () => {
   it('states the attempt against the budget, and escalates when spent', () => {
     expect(retryMessage({ ownerName: 'coder', attempt: 1, exhausted: false, maxRetries: 2 }, 'task-1'))
       .toContain('[RETRY 1/2]')
-    expect(retryMessage({ ownerName: 'coder', attempt: 3, exhausted: true, maxRetries: 2 }, 'task-1'))
-      .toContain('[ESCALATE]')
+    const escalation = retryMessage({ ownerName: 'coder', attempt: 3, exhausted: true, maxRetries: 2 }, 'task-1')
+    expect(escalation).toContain('[ESCALATE]')
+    // The Lead cannot be addressed by the Lead, so the owner carries the report.
+    expect(escalation).toContain('send_message target "lead"')
   })
 })

@@ -113,34 +113,27 @@ export function overBudget(spend: MemberSpend, budget: number): boolean {
   return billableTokens(spend) > budget
 }
 
-/** The two notices one spent budget owes. */
-export interface BudgetNotices {
-  /** Sent to the member that overspent. */
-  readonly member: string
-  /** Sent to the Lead that owns the plan. */
-  readonly lead: string
-}
-
 /**
- * Render both sides of one budget verdict.
+ * Render the one notice a spent budget owes.
+ *
+ * It is addressed to the member and never to the Lead. The Team mailbox refuses
+ * a message a member sends to itself, and the Lead is the only credential this
+ * plugin holds, so asking the Lead to report to the Lead would be a message the
+ * mailbox drops. Naming the Lead inside the member's notice keeps the escalation
+ * on the one edge the mailbox does allow.
+ *
  * @param memberName - declared member name that overspent.
  * @param spend - its cumulative record.
  * @param budget - declared token budget.
- * @returns the member-facing wrap-up notice and the Lead-facing escalation.
+ * @returns the wrap-up notice delivered to the member.
  */
-export function budgetNotices(memberName: string, spend: MemberSpend, budget: number): BudgetNotices {
+export function budgetNotice(memberName: string, spend: MemberSpend, budget: number): string {
   const used = billableTokens(spend)
   const route = spend.model === undefined ? 'an unrecorded route' : `model ${spend.model}`
-  return {
-    member: [
-      `[BUDGET] You have spent ${used} of the ${budget} tokens cluster.yml declares for "${memberName}".`,
-      'Stop starting new work, finish what is already in flight, and report to the Lead',
-      'exactly what is done and what is left.',
-    ].join(' '),
-    lead: [
-      `[BUDGET] "${memberName}" spent ${used} of its declared ${budget} tokens`,
-      `across ${spend.calls} model calls on ${route}.`,
-      'Re-scope the remaining work or accept the shortfall: this member will be asked to wind down.',
-    ].join(' '),
-  }
+  return [
+    `[BUDGET] You have spent ${used} of the ${budget} tokens cluster.yml declares for "${memberName}"`,
+    `across ${spend.calls} model calls on ${route}.`,
+    'Stop starting new work, finish what is already in flight, and report to the Lead',
+    'with send_message target "lead" exactly what is done and what is left.',
+  ].join(' ')
 }

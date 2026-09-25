@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addUsage,
   billableTokens,
-  budgetNotices,
+  budgetNotice,
   emptySpend,
   overBudget,
 } from '../src/spend.ts'
@@ -92,23 +92,23 @@ describe('overBudget', () => {
   })
 })
 
-describe('budgetNotices', () => {
-  it('tells the member to wind down and the Lead what it costs', () => {
+describe('budgetNotice', () => {
+  it('tells the member to wind down and to carry the report itself', () => {
     const spend = addUsage(emptySpend('session-1'), { inputTokens: 100, outputTokens: 40 }, {
       model: 'claude-opus-4',
     })
-    const notices = budgetNotices('coder-backend', spend, 120)
-    expect(notices.member).toContain('[BUDGET]')
-    expect(notices.member).toContain('140 of the 120 tokens')
-    expect(notices.member).toContain('"coder-backend"')
-    expect(notices.member).toContain('report to the Lead')
-    expect(notices.lead).toContain('140 of its declared 120 tokens')
-    expect(notices.lead).toContain('1 model calls')
-    expect(notices.lead).toContain('model claude-opus-4')
+    const notice = budgetNotice('coder-backend', spend, 120)
+    expect(notice).toContain('[BUDGET]')
+    expect(notice).toContain('140 of the 120 tokens')
+    expect(notice).toContain('"coder-backend"')
+    expect(notice).toContain('1 model calls')
+    expect(notice).toContain('model claude-opus-4')
+    // Only a teammate may address the Lead, so the member carries the report.
+    expect(notice).toContain('send_message target "lead"')
   })
 
   it('does not claim a route it never observed', () => {
     const spend = addUsage(emptySpend('session-1'), { inputTokens: 5, outputTokens: 5 })
-    expect(budgetNotices('tester', spend, 1).lead).toContain('an unrecorded route')
+    expect(budgetNotice('tester', spend, 1)).toContain('an unrecorded route')
   })
 })

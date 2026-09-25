@@ -147,7 +147,9 @@ export function retryMessage(notice: RetryNotice, taskId: string): string {
   if (notice.exhausted) {
     return [
       `[ESCALATE] ${taskId} was rejected ${notice.attempt} times, past the retry budget of ${notice.maxRetries}.`,
-      'Do not delegate it again: inspect the work yourself and decide what changes.',
+      'Stop work on it and fix nothing further.',
+      'The Lead owns the next decision, and the Team mailbox refuses a message a member',
+      'addresses to itself, so report the blocking defect yourself with send_message target "lead".',
     ].join(' ')
   }
   return [

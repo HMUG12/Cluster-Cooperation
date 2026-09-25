@@ -48,7 +48,7 @@ When a shared task reaches `completed`, every `pending` task that names it as a 
 
 A task that comes back from a rejection is counted through the reviews opened for it: below `maxRetries` the owner receives `[RETRY k/max]`, and at the budget the Lead receives `[ESCALATE]` instead of another round.
 
-Every durable model call also folds into its session's spend. A member that goes past the `tokenBudget` its cluster declares is told once to finish what is in flight and report, and the Lead is told what the overrun cost.
+Every durable model call also folds into its session's spend. A member that goes past the `tokenBudget` its cluster declares is told once to finish what is in flight and to carry the overrun to the Lead itself.
 
 ### What success and failure look like
 
@@ -117,6 +117,7 @@ Append-only for the recipient: each notice is appended after the reusable reques
 - **Budget notice, not a hard stop** — an over-budget member is asked to wind down once per Session and nothing cancels its turn, so a member that ignores the notice keeps spending.
 - **Review verdicts ride the board** — approval is completing the review task and rejection is reopening the reviewed one. A reviewer that does neither leaves the review open forever.
 - **Dependents wait on the verdict** — because a reviewed completion releases nobody, a reviewer that never approves leaves everything downstream of that task blocked, and only an operator or the Lead can break the tie.
+- **The Lead cannot be addressed** — the Team mailbox refuses a message a member sends to itself, and this plugin holds only the Lead's credential, so a notice that concerns the Lead names it inside the member's own notice and the member carries the report. An unowned escalation has no legal recipient and is logged for the operator instead.
 - **Completed-only trigger** — reopening a completed task does not re-notify, and a new blocker added after a completion is not replayed.
 - **No round control** — turn scheduling, per-round caps, and compaction policy are not part of this package.
 

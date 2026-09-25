@@ -641,14 +641,53 @@ clusters:
 
 **验证**：`packages/cluster` **55 个测试通过**（config 19 → 23），`tsc -b tsconfig.host.json` EXIT=0。
 
+## 11.10 M3 前置：修正"通知 Lead"的通道，并定下 M3 的状态表达（已完成 + 设计结论）
+
+### 缺陷（我上一版自己引入的）
+
+`mailbox.ts:121` 有一条硬约束：**成员不能给自己发消息**（`TEAM_SELF_MESSAGE`）。
+而 orchestrator 只持有 Lead 这一个凭据，于是它有两条通知的目标写了 `'lead'`——
+发送者正是 Lead 自己，**必然抛错、被 `tryDeliver` 吞掉，Lead 永远收不到**：
+
+1. 评审重试耗尽时的 `[ESCALATE]`（原设计"交给 Lead 决定"）；
+2. 预算越线时那半条"告诉 Lead 超额代价"。
+
+修法不是绕过约束，而是**顺着唯一的合法边**：只有队友能对 Lead 说话。
+两条通知都改为**发给能转达的那个成员**，并在文本里明确要求它自己 `send_message target "lead"`；
+无 owner 的升级没有任何合法收件人，改为 `logger.warn` 交给运维，
+不再尝试注定被拒的投递。已知边界写进了 README。
+
+### M3 设计结论（先想清楚再写代码）
+
+`TeamService` 的公开面只有 `sendMessage / createTask / getTask / listTasks / updateTask /
+interrupt / waitForChange / listMembers`。由此定下三条 M3 的设计前提：
+
+1. **任何面向 Lead 的通知，只能"由队友转达"或"落在任务板上"**，没有第三种通道。
+   这是所有对话协议的共用约束。
+2. **投票不需要新状态，但需要新语义**。任务板能表达的只有"行 + 状态"。上一轮试多人评审时
+   撞到的正是"旧评审行同时充当计数凭证与幂等守卫"，于是"本轮已满"与"已审过"无法区分。
+   可行解法是**把轮次编号显式化**（如 `Review #2:` 前缀），让轮次从"行数的推论"变成"板上事实"。
+3. **辩论/投票的裁决必须落成一次 `createTask` / `updateTask`**，否则 Lead 看不到结论、
+   下游也无法据此解锁。
+
+三条合起来意味着 M3 第一期应当选**广播**：它只需"Lead → 多个成员"这条**已存在**的合法边，
+不需要新状态，而且是圆桌/辩论/投票三种协议的公共基础设施。
+
+**验证**：`packages/cluster` **55 个测试通过**（`retryMessage` 与 `budgetNotice` 的断言
+改为校验"由成员转达"的措辞），`tsc -b tsconfig.host.json` EXIT=0。
+
 ---
 
 ## 12. 下一步（按优先级）
 
 1. **M2 编排收尾**：只剩轮次调度与上下文压缩策略。结构化 briefing、依赖自动解锁、评审回路、
    用量记账与预算执行都已完成并验证。
-2. **M3 对话协议**：广播 / 圆桌 / 辩论 / 投票。这是"让 agent 集群自动对话"里尚未着手的部分，
-   也是与 OAT 差距最大的一块。
+2. **M3 第一期：广播**。设计结论（§11.10）指向它：只需已存在的"Lead → 多成员"合法边，
+   不需要新任务板状态，且是圆桌/辩论/投票的共同基础设施。实现形态已探明——
+   `defineTool` + `agent.ctx.tools.register`（见 `tool-agent-team/src/index.ts:216`），
+   可以直接挂在 **`cluster-orchestrator` 包内**，**不必新建包**：新建包会触发 `pnpm install`，
+   而当前环境下那个 postinstall 会挂在 lefthook 下载上（见前文环境说明）。
+   注意新增工具会进入模型的工具清单，必须同步 Model Experience 文档与工具目录门禁。
 3. **M4 可观测**：`dsh cluster status/tasks/agents/graph/cost` 命令族。用量记账（§11.7）已经把
    `cost` 需要的数据折好了，CLI 层可以直接读；再复用上游 `client-ui-agent-team` 扩展 Web 集群面板。
 4. **纪律性提醒**：本项目反复出现的模式是"配置先声明、消费者后补"——`tokenBudget`、
