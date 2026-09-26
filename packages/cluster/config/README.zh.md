@@ -136,6 +136,7 @@ clusters:
 - **不执行降级** — `fallbacksFor()` 会报告已声明的降级路由，但目前没有消费者；把失败请求改道到下一个路由的工作延后到遥测层。
 - **briefing 只在派生时生效** — 已在运行的 teammate 会保持它起步时拿到的那份简报。
 - **预算只报告不拦截** — `budgetFor()` 只回答成员声明了什么；由 cluster orchestrator 把它变成一条通知，没有任何东西能阻止超额花费的成员。
+- **`topology` 与 `maxConcurrency` 是空转的** — 两者都会被解析并做范围校验，但既没有访问器，也不改变任何运行时行为：谁能和谁说话完全由 Team 邮箱决定，也没有东西限制同时运行的成员数。它们被声明只是为了让文档能写下意图；在有消费者之前会一直空转。
 - **每个 profile 只支持一个 cluster** — 调用方需显式传入 cluster 名，因此多个 cluster 并发运行的部署必须为每个 profile 配置一个 `defaultCluster`。
 
 <a id="dev-note"></a>

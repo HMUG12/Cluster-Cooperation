@@ -136,6 +136,7 @@ Independent for routes: the package writes no request content. A briefing is app
 - **No fallback execution** — `fallbacksFor()` reports declared fallbacks but nothing consumes them yet; routing a failed request to the next route is deferred to the telemetry layer.
 - **Briefing applies at spawn only** — an already-running teammate keeps the brief it started with.
 - **Budget reporting only** — `budgetFor()` answers what a member declared; the cluster orchestrator turns that into a notice, and nothing stops a member that overspends it.
+- **`topology` and `maxConcurrency` are inert** — both are parsed and range-checked, yet neither has an accessor and neither changes any runtime behaviour: the Team mailbox alone decides who may talk to whom, and nothing limits how many members run at once. They are declared so a document can state its intent, and they will stay inert until a consumer exists.
 - **One cluster per profile** — callers pass a cluster name explicitly, so a deployment running several clusters concurrently must configure one `defaultCluster` per profile.
 
 <a id="dev-note"></a>
