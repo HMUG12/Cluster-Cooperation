@@ -101,7 +101,9 @@ describe('texts', () => {
   it('spells out the board calls that answer a task', () => {
     const description = answerDescription('Which cache?', 'tester')
     expect(description).toContain('Which cache?')
-    expect(description).toContain('"claim"')
+    // The orchestrator assigns the row before delivering the notice, and the
+    // board refuses a claim on a row that is already in progress.
+    expect(description).not.toContain('action "claim"')
     expect(description).toContain(`"${ANSWER_MARKER}<your answer>"`)
     expect(description).toContain('"complete"')
     expect(description).toContain('"tester" collects every answer')

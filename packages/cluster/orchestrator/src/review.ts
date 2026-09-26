@@ -132,7 +132,7 @@ export function retryNotice(
 export function reviewMessage(request: ReviewRequest, taskId: string): string {
   return [
     `[REVIEW] ${taskId} "${request.subject}" is yours.`,
-    'Call team_task_get for its current revision, then team_task_update with action "claim".',
+    'Call team_task_get for its current revision: it is already assigned to you, so claim nothing.',
     'Complete it when you approve; reopen the reviewed task when you do not.',
   ].join(' ')
 }

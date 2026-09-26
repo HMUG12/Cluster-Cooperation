@@ -119,7 +119,7 @@ describe('messages', () => {
     const request = { subject: 'Review: work', description: '', ownerName: 'reviewer', writeScopes: [] }
     const message = reviewMessage(request, 'task-7')
     expect(message).toContain('[REVIEW] task-7')
-    expect(message).toContain('"claim"')
+    expect(message).not.toContain('action "claim"')
     expect(message).toContain('reopen the reviewed task')
   })
 

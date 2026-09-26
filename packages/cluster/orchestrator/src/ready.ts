@@ -78,9 +78,10 @@ export function readyMessage(notice: ReadyNotice): string {
   return [
     `[TASK READY] ${notice.taskId} "${notice.subject}" is unblocked`,
     `because ${notice.completedTaskId} completed.`,
-    `Call team_task_get ${notice.taskId} for the current revision, then`,
-    `team_task_update ${notice.taskId} with action "claim" using that revision,`,
-    'and report the outcome to the Lead.',
+    `Call team_task_get ${notice.taskId} for the current revision: if it is still unowned,`,
+    `team_task_update ${notice.taskId} with action "claim" using that revision; otherwise it is`,
+    `already yours, so finish it and team_task_update ${notice.taskId} with action "complete".`,
+    'Report the outcome to the Lead.',
   ].join(' ')
 }
 

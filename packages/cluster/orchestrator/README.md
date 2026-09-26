@@ -104,7 +104,7 @@ One durable user-role message per decision, delivered to the member that must ac
 ##### Verbatim text for this field, when needed
 
 ```markdown
-[TASK READY] task-2 "wire the endpoint" is unblocked because task-1 completed. Call team_task_get task-2 for the current revision, then team_task_update task-2 with action "claim" using that revision, and report the outcome to the Lead.
+[TASK READY] task-2 "wire the endpoint" is unblocked because task-1 completed. Call team_task_get task-2 for the current revision: if it is still unowned, team_task_update task-2 with action "claim" using that revision; otherwise it is already yours, so finish it and team_task_update task-2 with action "complete". Report the outcome to the Lead.
 ```
 
 #### Token effect

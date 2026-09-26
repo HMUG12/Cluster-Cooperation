@@ -99,8 +99,9 @@ export function handoffMessage(handoff: OwnershipHandoff, tally?: string): strin
   return [
     `[TASK READY] ${handoff.taskId} "${handoff.subject}" is unblocked and now assigned to you.`,
     ...tally === undefined ? [] : [tally],
-    `Call team_task_get ${handoff.taskId} for the current revision, then`,
-    `team_task_update ${handoff.taskId} with action "claim" using that revision,`,
+    `Call team_task_get ${handoff.taskId} for the current revision; this task is already`,
+    'assigned to you, so claim nothing. Work it, then',
+    `team_task_update ${handoff.taskId} with action "complete",`,
     'and report the outcome to the Lead.',
   ].join(' ')
 }
