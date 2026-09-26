@@ -692,6 +692,34 @@ interrupt / waitForChange / listMembers`。由此定下三条 M3 的设计前提
 
 **验证**：四项文档门禁全绿（配对 / 模型体验 / 链接 / 折行）。
 
+## 11.12 门禁债：fork 在全量门禁下并非全绿（一项已修，一项待做）
+
+跑此前**从未跑过**的目录类门禁，发现 fork 并不全绿，责任都在我们新增的 cluster 包：
+
+| 门禁 | 结果 | 原因 / 处置 |
+|---|---|---|
+| `verify-tool-catalog` | ✅ | 未被影响（我们没有 `tool-*` 包） |
+| `verify-config-catalog` | ❌ → ✅ | `docs/config-catalog.md` 过期（我们改过配置 schema）；**已重新生成并提交** |
+| `verify-cordis-catalog` | ❌ 仍红 | `service ctx.clusterConfig … has no SERVICE_PAGE entry`，另有 3 个类型未分类 |
+
+`gen-cordis-catalog.ts` 是 fail-closed 的双向校验：每个 `ctx.<key>` 服务必须映射到**恰好一个**
+subsystems 页（`SERVICE_PAGE`），生成器再把 API 区段注入该页；每个服务方法引用的类型必须归类到
+`linkedTypePages`（带文档页）、`foundationTypeNames` 或 `typeLinkExemptions`。
+
+我先加了 3 条 `typeLinkExemptions` 把类型违规消掉，随后**主动撤掉**：`SERVICE_PAGE` 要求的
+那份子系统页无论如何都得建，而页面一旦存在，这 3 个类型就该走 `LINK_MAP` 指向它
+（`docs/subsystems/agent-team.md` 里那些 `ts type-equiv` 块正是这类页面的写法），例外只是兜底。
+落下一个马上要被替换的捷径是浪费。
+
+**下一刀（已定）**：新建 `docs/subsystems/cluster.md` 与其中文对照页（含 `type-equiv` 块与
+API 区段标记）、在 `LINK_MAP` 与 `SERVICE_PAGE` 登记、加进 `docs/subsystems/README.md` 导航、
+生成配对记录，再让 `verify-cordis-catalog` 与 `verify-type-equiv` 转绿。
+顺带产出本项目**第一份真正的子系统文档页**（此前只有包 README）。
+
+**尚未探完**：`gen-cordis-api` / `gen-doc-graphs` / `gen-dependency-catalog` / `verify-export-jsdoc`
+四项的探测被审批打断，尚未确认是否同样受影响——下一轮**开工前先跑一遍**，
+避免又出现"代码写完才发现门禁"。
+
 ---
 
 ## 12. 下一步（按优先级）
