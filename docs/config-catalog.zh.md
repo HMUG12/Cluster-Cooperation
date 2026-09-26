@@ -471,6 +471,58 @@ export interface Config {
 
 来源：[`packages/client/ui-sidebar-documentpreview/src/config.ts:5`](../packages/client/ui-sidebar-documentpreview/src/config.ts)
 
+<a id="deepseek-aidsh-cluster-config"></a>
+
+## `@deepseek-ai/dsh-cluster-config`
+
+```ts config-catalog
+/** Composition entry for the cluster configuration service. */
+export interface Config {
+  /** Absolute or cwd-relative path to `cluster.yml`. Defaults to `cluster.yml` under the Harness home, then the process cwd. */
+  readonly file?: string
+  /** Cluster used when a caller supplies none. Overrides the document's `defaultCluster`. */
+  readonly defaultCluster?: string
+}
+```
+
+来源：[`packages/cluster/config/src/index.ts:30`](../packages/cluster/config/src/index.ts)
+
+<a id="deepseek-aidsh-cluster-orchestrator"></a>
+
+## `@deepseek-ai/dsh-cluster-orchestrator`
+
+需要：`agents` · `agentTeams`
+
+```ts config-catalog
+/** Orchestration configuration. */
+export interface Config {
+  /** Whether a completed blocker wakes the released task's owner. */
+  readonly dependencyAutoUnlock?: boolean
+  /** Whether a completed task opens the review its cluster declares. */
+  readonly reviewLoop?: boolean
+  /** Whether a member past its declared token budget is told to wind down. */
+  readonly budgetWatch?: boolean
+}
+```
+
+来源：[`packages/cluster/orchestrator/src/index.ts:28`](../packages/cluster/orchestrator/src/index.ts)
+
+<a id="deepseek-aidsh-cluster-router"></a>
+
+## `@deepseek-ai/dsh-cluster-router`
+
+需要：`agents` · `agentTeams` · `clusterConfig`
+
+```ts config-catalog
+/** Cluster routing configuration. */
+export interface Config {
+  /** Cluster whose routes apply. Defaults to the document's `defaultCluster`. */
+  readonly cluster?: string
+}
+```
+
+来源：[`packages/cluster/router/src/index.ts:24`](../packages/cluster/router/src/index.ts)
+
 <a id="deepseek-aidsh-compaction-basic"></a>
 
 ## `@deepseek-ai/dsh-compaction-basic`
@@ -595,7 +647,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/experimental/agent-team/src/types.ts:130`](../packages/experimental/agent-team/src/types.ts)
+来源：[`packages/experimental/agent-team/src/types.ts:148`](../packages/experimental/agent-team/src/types.ts)
 
 <a id="deepseek-aidsh-experimental-browser-use-chrome-devtools-mcp"></a>
 
@@ -843,7 +895,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/experimental/tool-agent-team/src/index.ts:17`](../packages/experimental/tool-agent-team/src/index.ts)
+来源：[`packages/experimental/tool-agent-team/src/index.ts:38`](../packages/experimental/tool-agent-team/src/index.ts)
 
 <a id="deepseek-aidsh-file-reference-local"></a>
 
@@ -3903,6 +3955,7 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-primitives`（[`packages/client/ui-primitives/src/index.ts`](../packages/client/ui-primitives/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-slots`（[`packages/client/ui-slots/src/index.ts`](../packages/client/ui-slots/src/index.ts)）
 - `@deepseek-ai/dsh-client-web`（[`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts)）
+- `@deepseek-ai/dsh-cluster-bundle`（[`packages/cluster/bundle/src/index.ts`](../packages/cluster/bundle/src/index.ts)）
 - `@deepseek-ai/dsh-cmdline`（[`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts)）
 - `@deepseek-ai/dsh-deque`（[`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-agent-team-profile`（[`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts)）

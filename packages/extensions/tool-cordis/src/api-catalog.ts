@@ -657,6 +657,62 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'clusterConfig',
+    summary: 'Owns one cluster document and answers per-member model routes.',
+    description: 'Owns one cluster document and answers per-member model routes.\n\nThe document is read lazily on first access and cached for the service lifetime, so a misconfiguration surfaces as a loud failure at the first consumer instead of at boot time.',
+    methods: [
+      {
+        signature: 'defaultClusterName(): string',
+        description: 'Cluster used when a caller supplies no name.',
+        parameters: [],
+        returns: 'the configured cluster.',
+        throws: ['Error when no cluster can be selected unambiguously.'],
+      },
+      {
+        signature: 'cluster(name: string = this.defaultClusterName()): ClusterSpec',
+        description: 'Read one declared cluster.',
+        parameters: [{ name: 'name', description: 'cluster name, defaulting to {@link defaultClusterName}.' }],
+        returns: 'the complete cluster declaration.',
+      },
+      {
+        signature: 'member(clusterName: string, memberName: string): MemberSpec | undefined',
+        description: 'Read one member declaration.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }, { name: 'memberName', description: 'model-facing member name, or `lead`.' }],
+        returns: 'the member row, or undefined when it is not declared.',
+      },
+      {
+        signature: 'routeFor(clusterName: string, memberName: string): ModelSelection | undefined',
+        description: 'Resolve the primary route bound to one cluster member.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }, { name: 'memberName', description: 'model-facing member name, or `lead` for the coordinator.' }],
+        returns: 'the configured selection, or undefined when the member declares no route.',
+      },
+      {
+        signature: 'fallbacksFor(clusterName: string, memberName: string): ModelSelection[]',
+        description: 'Ordered fallback routes for one cluster member, excluding its primary route.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }, { name: 'memberName', description: 'model-facing member name, or `lead`.' }],
+        returns: 'configured fallbacks, empty when none are declared.',
+      },
+      {
+        signature: 'briefingFor(clusterName: string, memberName: string): string | undefined',
+        description: 'Render the accountability a spawned member starts with.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }, { name: 'memberName', description: 'model-facing member name. The Lead declares no briefing.' }],
+        returns: 'the briefing text, or undefined when the member declares none.',
+      },
+      {
+        signature: 'budgetFor(clusterName: string, memberName: string): number | undefined',
+        description: 'Read the soft token budget declared for one member.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }, { name: 'memberName', description: 'model-facing member name. A Lead declares no budget.' }],
+        returns: 'the declared budget, or undefined when the member declares none.',
+      },
+      {
+        signature: 'reviewFor(clusterName: string = this.defaultClusterName()): ReviewSpec | undefined',
+        description: 'Read the review policy that governs completed work.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }],
+        returns: 'the enabled review policy, or undefined when review is off.',
+      },
+    ],
+  },
+  {
     key: 'commands',
     summary: 'Human-command registry.',
     description: 'Human-command registry. Plain-context definitions are global; definitions registered through a command-injected child of an agent context shadow globals for that agent.',
@@ -4253,6 +4309,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ClientArtifactBaseline {\n    readonly path: string;\n    readonly mtimeMs: number;\n    readonly size: number;\n}',
   },
   {
+    name: 'ClusterSpec',
+    declaration: 'export interface ClusterSpec {\n    readonly name: string;\n    readonly topology: ClusterTopology;\n    readonly maxConcurrency?: number;\n    readonly lead: LeadSpec;\n    readonly members: MemberSpec[];\n    readonly orchestration?: OrchestrationSpec;\n}',
+  },
+  {
+    name: 'ClusterTopology',
+    declaration: 'export type ClusterTopology = \'star\' | \'mesh\' | \'pipeline\' | \'debate\';',
+  },
+  {
     name: 'CollectedOutput',
     declaration: 'export interface CollectedOutput {\n    text: string;\n    truncated: boolean;\n    spillPath?: string;\n}',
   },
@@ -4973,6 +5037,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface KvUnitDescriptor {\n    readonly name: string;\n    readonly version: number;\n    readonly tables: readonly string[];\n    readonly hasGlobal: boolean;\n    readonly layout?: \'single\' | \'per-record\';\n    readonly compatibleVersions?: readonly number[];\n}',
   },
   {
+    name: 'LeadSpec',
+    declaration: 'export interface LeadSpec {\n    readonly route?: RouteSpec;\n    readonly fallback?: RouteSpec[];\n}',
+  },
+  {
     name: 'LlmAdapter',
     declaration: 'export abstract class LlmAdapter {\n    providerInfo(provider: string): LlmProviderInfo;\n    providerRetryPolicy(_provider: string): ResolvedRetryPolicy | undefined;\n    imageRequestPricing(_provider: string, _model: string): LlmImageRequestPricing | undefined;\n    listModels(_provider: string): Promise<readonly LlmModelInfo[]>;\n    resolveModel(provider: string, model: string, _signal?: AbortSignal): Promise<LlmResolvedModelInfo>;\n    async prepareCall(provider: string, model: string, signal?: AbortSignal): Promise<PreparedAdapterCall>;\n    abstract stream(options: GenerateOptions): AsyncIterable<StreamChunk>;\n}',
   },
@@ -5095,6 +5163,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'McpResourceRequest',
     declaration: 'export type McpResourceRequest = {\n    method: \'resources/list\' | \'resources/templates/list\';\n    cursor?: string;\n} | {\n    method: \'resources/read\';\n    uri: string;\n};',
+  },
+  {
+    name: 'MemberSpec',
+    declaration: 'export interface MemberSpec {\n    readonly name: string;\n    readonly description?: string;\n    readonly context?: \'fresh\' | \'fork\';\n    readonly writeScopes?: string[];\n    readonly tokenBudget?: number;\n    readonly mission?: string;\n    readonly deliverables?: string[];\n    readonly definitionOfDone?: string[];\n    readonly qualityBar?: string[];\n    readonly route?: RouteSpec;\n    readonly fallback?: RouteSpec[];\n}',
   },
   {
     name: 'Message',
@@ -5263,6 +5335,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'OptionalSessionSeq',
     declaration: 'export type OptionalSessionSeq = SessionSeq | null;',
+  },
+  {
+    name: 'OrchestrationSpec',
+    declaration: 'export interface OrchestrationSpec {\n    readonly review?: ReviewSpec;\n}',
   },
   {
     name: 'PackageResult',
@@ -5575,6 +5651,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly parentAgent?: Agent;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'ReviewSpec',
+    declaration: 'export interface ReviewSpec {\n    readonly enabled: boolean;\n    readonly reviewer: string;\n    readonly maxRetries: number;\n}',
+  },
+  {
+    name: 'RouteSpec',
+    declaration: 'export interface RouteSpec {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
   },
   {
     name: 'RpcId',
@@ -6306,7 +6390,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SpawnTeammateRequest',
-    declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly signal: AbortSignal;\n}',
+    declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly agentOptions?: TeamSpawnRoute;\n    readonly signal: AbortSignal;\n}',
   },
   {
     name: 'SpawnTeammateResult',
@@ -6547,6 +6631,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TeamMessageId',
     declaration: 'export type TeamMessageId = Branded<\'TeamMessageId\'>;',
+  },
+  {
+    name: 'TeamSpawnRoute',
+    declaration: 'export interface TeamSpawnRoute {\n    readonly provider?: string;\n    readonly model?: string;\n    readonly reasoningEffort?: string;\n    readonly maxTokens?: number;\n}',
   },
   {
     name: 'TeamTaskAction',

@@ -765,6 +765,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     consumers: ['tool-cordis'],
     note: 'Registers host inspect providers, mirrors the client provider manifest, and routes client queries through the dynamic Cordis transport.',
   },
+  {
+    key: 'clusterConfig',
+    pkg: 'cluster-config',
+    title: 'Cluster declaration service',
+    mode: 'core',
+    consumers: ['cluster-router', 'cluster-orchestrator'],
+    note: 'Answers one cluster.yml declaration: per-member routes and ordered fallbacks, the accountability a spawned teammate starts with, the review policy, and the soft token budget a member declared. The router binds each teammate to its route as the Agent is created and the orchestrator applies the board policy, so the declaration is only ever read.',
+  },
 ]
 
 function generatedHeader(title: string): string[] {
