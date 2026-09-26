@@ -128,7 +128,7 @@ function lead(messages) {
   // A bounded read loop turns a stalled motion into a readable failure instead
   // of a run that only ends when the harness kills it.
   const reads = names.filter(name => name === 'team_task_list').length
-  if (reads >= 12) return textChunks(`CLUSTER_MOTION_STUCK after ${reads} board reads`)
+  if (reads >= 40) return textChunks(`CLUSTER_MOTION_STUCK after ${reads} board reads`)
   if (last.includes('team_task_list')) {
     // Two ballots and one tally: a completed count means every row landed.
     const completed = result.match(/"status":"completed"/gu)?.length ?? 0

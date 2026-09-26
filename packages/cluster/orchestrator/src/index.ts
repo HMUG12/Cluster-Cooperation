@@ -17,6 +17,18 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 import { broadcastTargets } from './broadcast.ts'
+import {
+  debatePlan,
+  debateSummary,
+  isVerdictTask,
+  MAX_DEBATE_ROUNDS,
+  readStatements,
+  speechDescription,
+  speechMessage,
+  speechSubject,
+  verdictDescription,
+  verdictSubject,
+} from './debate.ts'
 import { handoffMessage, ownershipHandoffs } from './handoff.ts'
 import {
   ballotDescription,
@@ -148,6 +160,49 @@ const ROUNDTABLE_VALUE_SCHEMA = {
           taskId: { type: 'string', required: true },
           messageId: { type: 'string', required: true },
           status: { type: 'string', required: true, enum: ['accepted', 'queued'] },
+        },
+      },
+    },
+    skipped: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          target: { type: 'string', required: true },
+          reason: { type: 'string', required: true },
+        },
+      },
+    },
+  },
+} as const
+
+/** One debate result, matching what the tool promises the model. */
+const DEBATE_VALUE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    verdict: {
+      type: 'object',
+      required: true,
+      additionalProperties: false,
+      properties: {
+        taskId: { type: 'string', required: true },
+        subject: { type: 'string', required: true },
+        ownerName: { type: 'string', required: true },
+      },
+    },
+    speeches: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          round: { type: 'integer', required: true },
+          target: { type: 'string', required: true },
+          taskId: { type: 'string', required: true },
         },
       },
     },
@@ -502,6 +557,106 @@ export function apply(ctx: Context, config: Config = {}): void {
     }))
   }
 
+  /**
+   * Register the debate tool, when this scope can register tools.
+   *
+   * A debate is the one protocol whose shape is layered rather than fanned: the
+   * opening round is assigned and announced here, and every later round is left
+   * to the ordinary release path, which opens a round only once the previous one
+   * is fully argued. No board state carries the round, because the round *is*
+   * the blocker list.
+   * @param agent - the Agent whose scope owns the tool, always the Lead.
+   * @returns the disposer, or undefined when the composition mounts no tool runtime.
+   */
+  const registerDebate = (agent: Agent): (() => void) | undefined => {
+    const tools = toolRuntime(agent.ctx)
+    if (tools === undefined) return undefined
+    return tools.register(defineTool({
+      name: 'debate',
+      description: 'Run a debate over several rounds: every speaker owns one speech per round, each round stays blocked until the previous one is argued, and a verdict task is assigned to a judge the moment the final round closes. Only the Team Lead may call this tool.',
+      parameters: {
+        topic: { type: 'string', required: true, description: 'The question the debate argues.' },
+        rounds: {
+          type: 'integer',
+          required: true,
+          description: `Rounds to run, at least 2 and at most ${MAX_DEBATE_ROUNDS}; each round spends every speaker a turn.`,
+        },
+        judge: {
+          type: 'string',
+          required: true,
+          description: 'Teammate that weighs the final round. Never a speaker, and never the Lead, which no notice can wake.',
+        },
+        speakers: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Teammate names to seat, in speaking order; omit to seat every current teammate except the judge.',
+        },
+      },
+      output: jsonOutput(DEBATE_VALUE_SCHEMA),
+      async execute(args, exec) {
+        const caller = exec.agent
+        if (caller === undefined) throw new Error('debate requires a calling Agent')
+        const decision = debatePlan(args.speakers, ctx.agentTeams.listMembers(caller), args.rounds, args.judge)
+        if (!decision.ok) throw new Error(`debate refused: ${decision.reason}`)
+        const { plan } = decision
+        const speeches: Array<{ round: number; target: string; taskId: string }> = []
+        const refused = plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason }))
+        // Each round blocks on the previous one, so open them in order and let
+        // the release path do the rest of the work.
+        let prior: string[] = []
+        for (let round = 1; round <= plan.rounds; round += 1) {
+          const ids: string[] = []
+          for (const target of plan.speakers) {
+            const setup = await attempt(async () => {
+              const speech = await ctx.agentTeams.createTask(caller, {
+                subject: speechSubject(round, plan.rounds, args.topic),
+                description: speechDescription(args.topic, target, round, plan.rounds, plan.judge, prior),
+                ...prior.length === 0 ? {} : { blockedBy: prior.map(id => TeamTaskId(id)) },
+              })
+              // The opening round is ready the moment it exists, so nothing else
+              // will ever assign it; later rounds wait for the handoff.
+              if (round > 1) return { taskId: String(speech.id) }
+              await ctx.agentTeams.updateTask(caller, {
+                taskId: speech.id,
+                expectedRevision: speech.revision,
+                action: 'reassign',
+                owner: target,
+              })
+              await ctx.agentTeams.sendMessage(caller, {
+                target,
+                content: [{ type: 'text', text: speechMessage(String(speech.id), round, plan.rounds) }],
+                signal: exec.signal,
+              })
+              return { taskId: String(speech.id) }
+            })
+            if (!setup.ok) {
+              refused.push({ target: `round ${round} ${target}`, reason: setup.reason })
+              continue
+            }
+            ids.push(setup.value.taskId)
+            speeches.push({ round, target, taskId: setup.value.taskId })
+          }
+          prior = ids
+        }
+        // A verdict blocked by nothing is woken by nothing, so a debate that
+        // opened no speech has to fail loudly rather than leave it waiting.
+        if (prior.length === 0) {
+          throw new Error(`debate opened no speech: ${refused.map(skip => `${skip.target} (${skip.reason})`).join('; ')}`)
+        }
+        const verdict = await ctx.agentTeams.createTask(caller, {
+          subject: verdictSubject(args.topic),
+          description: verdictDescription(args.topic, plan.judge, prior),
+          blockedBy: prior.map(id => TeamTaskId(id)),
+        })
+        return {
+          verdict: { taskId: String(verdict.id), subject: verdict.subject, ownerName: plan.judge },
+          speeches,
+          skipped: refused,
+        }
+      },
+    }))
+  }
+
   const registerBroadcast = (agent: Agent): (() => void) | undefined => {
     const tools = toolRuntime(agent.ctx)
     if (tools === undefined) return undefined
@@ -565,13 +720,18 @@ export function apply(ctx: Context, config: Config = {}): void {
         ctx.logger.warn('cluster-orchestrator: could not assign %s: %s', handoff.taskId, String(error))
         continue
       }
-      // A tally carries the count the board already agrees on, so its counter
-      // checks a number instead of counting free text.
+      // A tally carries the count the board already agrees on and a verdict
+      // carries how much of the final round is readable, so each collector
+      // checks a number instead of counting free text itself.
       const released = tasks.find(candidate => String(candidate.id) === handoff.taskId)
-      const tally = released !== undefined && isTallyTask(released)
-        ? tallySummary(readTally(released, tasks))
-        : undefined
-      await tryDeliver(lead, handoff.ownerName, handoffMessage(handoff, tally))
+      const carried = released === undefined
+        ? undefined
+        : isTallyTask(released)
+          ? tallySummary(readTally(released, tasks))
+          : isVerdictTask(released)
+            ? debateSummary(readStatements(released, tasks))
+            : undefined
+      await tryDeliver(lead, handoff.ownerName, handoffMessage(handoff, carried))
     }
   }
 
@@ -739,7 +899,12 @@ export function apply(ctx: Context, config: Config = {}): void {
     } catch {
       return
     }
-    const registered = [registerBroadcast(agent), registerRoundtable(agent), registerMotion(agent)]
+    const registered = [
+      registerBroadcast(agent),
+      registerRoundtable(agent),
+      registerMotion(agent),
+      registerDebate(agent),
+    ]
       .filter((dispose): dispose is () => void => dispose !== undefined)
     if (registered.length === 0) return
     broadcasts.set(agent, () => {

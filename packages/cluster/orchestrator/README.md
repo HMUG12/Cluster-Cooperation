@@ -50,7 +50,7 @@ A task that comes back from a rejection is counted through the reviews opened fo
 
 Every durable model call also folds into its session's spend. A member that goes past the `tokenBudget` its cluster declares is told once to finish what is in flight and to carry the overrun to the Lead itself.
 
-The Lead also gains three tools. `broadcast_message` sends a single durable message to every current teammate, or to the members it names, and reports each refusal with a reason instead of dropping it. `roundtable` goes further: one call asks a question of several teammates as tasks they own, and leaves one synthesis task blocked by all their answers, so the collector it names is assigned and woken the moment the last answer lands. `motion` puts one decision to a vote: a ballot task per voter, and a `Tally:` task that is assigned to a teammate when the last ballot is cast — carrying the counted result, because the board already agrees on it.
+The Lead also gains four tools. `broadcast_message` sends a single durable message to every current teammate, or to the members it names, and reports each refusal with a reason instead of dropping it. `roundtable` goes further: one call asks a question of several teammates as tasks they own, and leaves one synthesis task blocked by all their answers, so the collector it names is assigned and woken the moment the last answer lands. `motion` puts one decision to a vote: a ballot task per voter, and a `Tally:` task that is assigned to a teammate when the last ballot is cast — carrying the counted result, because the board already agrees on it. `debate` argues a topic over several rounds: one speech task per speaker per round, each round blocked by the whole round before it, and a `Verdict:` task assigned to a judge when the final round closes — carrying how much of that round is readable.
 
 ### What success and failure look like
 
@@ -73,6 +73,7 @@ A released owner starts working without the Lead polling the board. A completion
 | [`src/handoff.ts`](src/handoff.ts) | Release-time assignment and the wake-up that carries it |
 | [`src/roundtable.ts`](src/roundtable.ts) | Roundtable planning and every text one round emits |
 | [`src/motion.ts`](src/motion.ts) | Motion planning, ballot counting, and the notice that carries a count |
+| [`src/debate.ts`](src/debate.ts) | Debate planning, the round vocabulary, and the reading a verdict weighs |
 | [`src/index.ts`](src/index.ts) | Plugin: event subscription, roster resolution, queued delivery |
 
 The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
@@ -157,6 +158,20 @@ One tool call and one JSON result in the Lead's history, one ballot notice per v
 
 Append-only everywhere: every notice lands after the reusable request prefix, so no cached prefix is invalidated.
 
+### The debate tool
+
+#### What the model sees
+
+`debate` argues a topic over rounds: it opens one speech task per speaker for the opening round, assigns and announces each with a `[DEBATE]` notice, and opens every later round blocked by the whole round before it — which is the round control it needs, because the board opens a round only once the previous one is argued. Each speech records its argument as a final line of `statement: ...`, and the `Verdict: ...` task declares its judge on a `cluster-owner:` line, so the handoff assigns that member when the final round closes — and the same notice carries how many arguments in that round are readable, so the judge checks a number instead of counting.
+
+#### Token effect
+
+One tool call and one JSON result in the Lead's history, one notice per opening-round speaker, and one assignment notice carrying the reading to the judge. Each later round costs one handoff notice per speaker, because its speech is assigned at release rather than up front.
+
+#### KV Cache effect
+
+Append-only everywhere: every notice lands after the reusable request prefix, so no cached prefix is invalidated.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -168,11 +183,13 @@ Append-only everywhere: every notice lands after the reusable request prefix, so
 - **Dependents wait on the verdict** — because a reviewed completion releases nobody, a reviewer that never approves leaves everything downstream of that task blocked, and only an operator or the Lead can break the tie.
 - **The Lead cannot be addressed** — the Team mailbox refuses a message a member sends to itself, and this plugin holds only the Lead's credential, so a notice that concerns the Lead names it inside the member's own notice and the member carries the report. An unowned escalation has no legal recipient and is logged for the operator instead.
 - **Completed-only trigger** — reopening a completed task does not re-notify, and a new blocker added after a completion is not replayed.
-- **No round control** — turn scheduling, per-round caps, and compaction policy are not part of this package.
+- **No scheduling policy** — turn scheduling, configurable round or concurrency caps, and compaction policy are not part of this package; a debate's round cap is a fixed refusal rather than a setting.
 - **The broadcast tool sits outside the tool catalog** — `docs/tool-catalog.md` is generated from `tool-*` packages and this plugin is not one, so the tool is registered and documented here instead. Promoting it to a `tool-*` package would bring it into the catalog and into the Model Experience link checks.
 - **A roundtable is only as private as the board** — every answer task is readable by every member, so answers are public, and an enabled review policy reviews each answer and the synthesis like any other completion.
 - **A count is only as good as the lines it reads** — a ballot completed without a readable `vote:` line is counted as unrecorded and named as a caveat in the notice, so a motion can close with a count that does not add up to its roll rather than with a verdict nobody can check.
 - **A teammate that is still provisioning cannot be reached** — the mailbox and the board both resolve a target through the roster's active phase, so asking a member that is still starting up throws on delivery and on assignment alike. Every protocol reports that member as skipped with the reason instead of mutating the board and then failing halfway, which is what a fan-out issued right after `spawn_teammate` would otherwise hit.
+- **A verdict weighs the final round only** — earlier rounds stay on the board and stay readable, but the verdict task blocks on the last round alone, so a judge weighs the closing arguments unless it reads back further itself.
+- **Debate size is capped rather than configured** — more than five rounds, or more than thirty-two speech rows, is refused up front, because every round spends each speaker a full turn and a debate that large costs more than it decides.
 
 <a id="dev-note"></a>
 ### Dev Note

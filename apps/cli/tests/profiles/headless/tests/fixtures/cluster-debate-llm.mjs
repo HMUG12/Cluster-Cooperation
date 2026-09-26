@@ -1,12 +1,13 @@
-/** Deterministic keyless cluster adapter for one roundtable, from the Lead to the synthesis. */
+/** Deterministic keyless cluster adapter for one debate over two rounds. */
 
 import { ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
 
 let nextCall = 0
 
-const QUESTION = 'Which cache should the service use?'
-const PARTICIPANTS = ['coder', 'tester']
-const SYNTHESIZER = 'reviewer'
+const TOPIC = 'Which cache should the service use?'
+const ROUNDS = 2
+const SPEAKERS = ['coder', 'tester']
+const JUDGE = 'reviewer'
 
 function calls(messages) {
   return messages.flatMap(message => message.role === 'assistant'
@@ -17,18 +18,6 @@ function calls(messages) {
 function latestAssistantCalls(messages) {
   const assistant = messages.findLast(message => message.role === 'assistant')
   return assistant?.content.filter(block => block.type === 'tool-call').map(block => block.name) ?? []
-}
-
-function hasTaskAction(messages, action) {
-  return messages.some(message => message.role === 'assistant'
-    && message.content.some((block) => {
-      if (block.type !== 'tool-call' || block.name !== 'team_task_update') return false
-      try {
-        return JSON.parse(block.arguments).action === action
-      } catch {
-        return false
-      }
-    }))
 }
 
 function latestToolText(messages) {
@@ -45,10 +34,54 @@ function userText(messages) {
     : []).join('\n')
 }
 
+/**
+ * Whether one board action was already issued for one task.
+ *
+ * A speaker acts twice in a debate, so the conversation as a whole cannot tell
+ * whether this round's speech was written — the task id has to.
+ * @param messages - the conversation so far.
+ * @param task - the task the action must have targeted.
+ * @param action - the action to look for.
+ * @returns true when that exact update already happened.
+ */
+function hasTaskActionOn(messages, task, action) {
+  return messages.some(message => message.role === 'assistant'
+    && message.content.some((block) => {
+      if (block.type !== 'tool-call' || block.name !== 'team_task_update') return false
+      try {
+        const args = JSON.parse(block.arguments)
+        return args.action === action && args.task_id === task
+      } catch {
+        return false
+      }
+    }))
+}
+
+/**
+ * Whether one task was already read.
+ *
+ * A speaker reads twice in a debate, so a conversation-wide check would let the
+ * second round act on the first round's revision.
+ * @param messages - the conversation so far.
+ * @param task - the task that must have been read.
+ * @returns true when that exact task was already fetched.
+ */
+function hasTaskGet(messages, task) {
+  return messages.some(message => message.role === 'assistant'
+    && message.content.some((block) => {
+      if (block.type !== 'tool-call' || block.name !== 'team_task_get') return false
+      try {
+        return JSON.parse(block.arguments).task_id === task
+      } catch {
+        return false
+      }
+    }))
+}
+
 function toolChunks(specs) {
   const chunks = []
   for (const [index, spec] of specs.entries()) {
-    const id = ToolCallId(`cluster-roundtable-fixture-${++nextCall}`)
+    const id = ToolCallId(`cluster-debate-fixture-${++nextCall}`)
     const args = JSON.stringify(spec.args)
     chunks.push(
       { type: 'block-start', index, blockType: 'tool-call' },
@@ -77,7 +110,7 @@ function textChunks(text) {
  * Which teammate this conversation belongs to.
  *
  * The spawn prompt carries the roster reminder, so one script serves every
- * teammate instead of one model per member.
+ * speaker and the judge instead of one model per member.
  * @param messages - the conversation so far.
  * @returns the teammate name, or undefined for the Lead.
  */
@@ -107,32 +140,35 @@ function lead(messages) {
   const last = latestAssistantCalls(messages)
   const spawned = names.filter(name => name === 'spawn_teammate').length
   if (spawned < 3) {
-    const name = ['coder', 'tester', 'reviewer'][spawned]
+    const name = [...SPEAKERS, JUDGE][spawned]
     return toolChunks([{
       name: 'spawn_teammate',
       args: {
         name,
-        description: `Own the ${name} role of the scripted roundtable.`,
+        description: `Own the ${name} role of the scripted debate.`,
         prompt: 'Reply with the single word ready, then act on the notices that arrive.',
         context: 'fresh',
       },
     }])
   }
-  if (!names.includes('roundtable')) {
+  if (!names.includes('debate')) {
     return toolChunks([{
-      name: 'roundtable',
-      args: { question: QUESTION, participants: PARTICIPANTS, synthesize: SYNTHESIZER },
+      name: 'debate',
+      args: { topic: TOPIC, rounds: ROUNDS, judge: JUDGE, speakers: SPEAKERS },
     }])
   }
   const result = latestToolText(messages)
-  // A bounded read loop turns a stalled round into a readable failure instead
-  // of a run that only ends when the harness kills it.
+  // A bounded read loop turns a stalled debate into a readable failure instead
+  // of a run that only ends when the harness kills it. The bound is generous
+  // because a read is one instant model call here: it races the teammates' own
+  // agent loops, so a small bound reports a slow run as a deadlock.
   const reads = names.filter(name => name === 'team_task_list').length
-  if (reads >= 40) return textChunks(`CLUSTER_ROUNDTABLE_STUCK after ${reads} board reads`)
+  if (reads >= 40) return textChunks(`CLUSTER_DEBATE_STUCK after ${reads} board reads`)
   if (last.includes('team_task_list')) {
-    // Two answers and one synthesis: a completed synthesis means every row landed.
+    // Two rounds of two speeches plus one verdict: a completed verdict means
+    // the layered barrier opened every round in order.
     const completed = result.match(/"status":"completed"/gu)?.length ?? 0
-    if (completed >= 3) return textChunks('CLUSTER_ROUNDTABLE_OK')
+    if (completed >= 5) return textChunks('CLUSTER_DEBATE_OK')
     return toolChunks([{ name: 'team_task_list', args: {} }])
   }
   if (last.includes('wait_agent')) return toolChunks([{ name: 'team_task_list', args: {} }])
@@ -141,25 +177,24 @@ function lead(messages) {
 
 function teammate(messages) {
   const names = calls(messages)
-  const inbox = userText(messages)
   const task = inboxTask(messages)
-  const revision = latestRevision(messages)
   // The spawn prompt names no task, so the first turn is the acknowledgement.
   if (task === undefined) return textChunks('ready')
-  const answering = inbox.includes('[ROUNDTABLE]')
-  if (!names.includes('team_task_get')) return toolChunks([{ name: 'team_task_get', args: { task_id: task } }])
-  if (answering && !hasTaskAction(messages, 'edit')) {
+  if (!hasTaskGet(messages, task)) return toolChunks([{ name: 'team_task_get', args: { task_id: task } }])
+  const revision = latestRevision(messages)
+  const judging = latestToolText(messages).includes('"subject":"Verdict:')
+  if (!judging && !hasTaskActionOn(messages, task, 'edit')) {
     return toolChunks([{
       name: 'team_task_update',
       args: {
         task_id: task,
         expected_revision: revision,
         action: 'edit',
-        description: 'The small cache is enough for one node.\nanswer: use the small cache.',
+        description: 'The small cache holds under our load.\nstatement: use the small cache.',
       },
     }])
   }
-  if (!hasTaskAction(messages, 'complete')) {
+  if (!hasTaskActionOn(messages, task, 'complete')) {
     return toolChunks([{
       name: 'team_task_update',
       args: { task_id: task, expected_revision: revision, action: 'complete' },
@@ -170,22 +205,22 @@ function teammate(messages) {
       name: 'send_message',
       args: {
         target: 'lead',
-        message: answering ? `Answer ${task} recorded.` : `Synthesis ${task} recorded.`,
+        message: judging ? `Verdict ${task} recorded.` : `Speech ${task} recorded.`,
       },
     }])
   }
-  return textChunks(answering ? 'Answerer complete.' : 'Synthesizer complete.')
+  return textChunks(judging ? 'Judge complete.' : 'Speaker complete.')
 }
 
-class ClusterRoundtableAdapter extends LlmAdapter {
+class ClusterDebateAdapter extends LlmAdapter {
   async * stream(options) {
     const tools = options.tools.map(tool => tool.name)
     const owner = identity(options.messages)
-    // The tool surface differs per role: only the Lead may open a roundtable,
-    // and only a teammate may act on the board rows it was handed.
+    // The tool surface differs per role: only the Lead may open a debate, and
+    // only a teammate may act on the board rows it was handed.
     if (owner === undefined) {
-      if (!tools.includes('roundtable') || !tools.includes('spawn_teammate')) {
-        throw new Error('the cluster bundle exposes no roundtable or teammate tool to the Lead')
+      if (!tools.includes('debate') || !tools.includes('spawn_teammate')) {
+        throw new Error('the cluster bundle exposes no debate or teammate tool to the Lead')
       }
     } else if (!tools.includes('team_task_get') || !tools.includes('team_task_update')) {
       throw new Error(`teammate ${owner} has no shared-task tools`)
@@ -199,11 +234,11 @@ class ClusterRoundtableAdapter extends LlmAdapter {
 }
 
 /** Cordis plugin name. */
-export const name = 'cluster-roundtable-fixture-llm'
+export const name = 'cluster-debate-fixture-llm'
 /** LLM registry dependency. */
 export const inject = ['llm']
 
 /** Register the keyless adapter on the shipped default provider route. */
 export function apply(ctx) {
-  ctx.llm.registerAdapter(['deepseek-official'], new ClusterRoundtableAdapter())
+  ctx.llm.registerAdapter(['deepseek-official'], new ClusterDebateAdapter())
 }

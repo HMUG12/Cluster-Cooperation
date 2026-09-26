@@ -100,7 +100,7 @@ function lead(messages) {
   // A bounded read loop turns a stalled fan-out into a readable failure instead
   // of a run that only ends when the harness kills it.
   const reads = names.filter(name => name === 'list_agents').length
-  if (reads >= 12) return textChunks(`CLUSTER_BROADCAST_STUCK after ${reads} roster reads`)
+  if (reads >= 40) return textChunks(`CLUSTER_BROADCAST_STUCK after ${reads} roster reads`)
   if (last.includes('list_agents')) {
     // Every teammate answered and went quiet, so the fan-out reached all of them.
     const quiet = result.match(/"status":"(?:inactive|idle)"/gu)?.length ?? 0

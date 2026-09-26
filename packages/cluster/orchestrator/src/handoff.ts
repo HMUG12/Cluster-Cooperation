@@ -92,13 +92,14 @@ export function ownershipHandoffs(
 /**
  * Render the notice a handoff delivers once the assignment has landed.
  * @param handoff - the computed handoff.
- * @param tally - counted result to carry, when the released task is a tally.
+ * @param carried - aggregate the released task already lets its owner check: a
+ * tally's count or a verdict's readable argument count.
  * @returns the message text delivered to the newly assigned owner.
  */
-export function handoffMessage(handoff: OwnershipHandoff, tally?: string): string {
+export function handoffMessage(handoff: OwnershipHandoff, carried?: string): string {
   return [
     `[TASK READY] ${handoff.taskId} "${handoff.subject}" is unblocked and now assigned to you.`,
-    ...tally === undefined ? [] : [tally],
+    ...carried === undefined ? [] : [carried],
     `Call team_task_get ${handoff.taskId} for the current revision; this task is already`,
     'assigned to you, so claim nothing. Work it, then',
     `team_task_update ${handoff.taskId} with action "complete",`,
