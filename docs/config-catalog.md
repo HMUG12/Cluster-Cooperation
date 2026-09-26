@@ -503,7 +503,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/cluster/orchestrator/src/index.ts:31`](../packages/cluster/orchestrator/src/index.ts)
+Source: [`packages/cluster/orchestrator/src/index.ts:32`](../packages/cluster/orchestrator/src/index.ts)
 
 <a id="deepseek-aidsh-cluster-router"></a>
 

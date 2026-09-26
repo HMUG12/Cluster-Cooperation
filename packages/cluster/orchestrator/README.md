@@ -44,7 +44,7 @@ Mount it alongside the Team domain and `@deepseek-ai/dsh-cluster-config`:
 
 ### What you get
 
-When a shared task reaches `completed`, every `pending` task that names it as a blocker, has an owner, and has no remaining open blocker receives one durable `[TASK READY]` message. The same completion also opens `Review: <subject>` for the reviewer declared in `cluster.yml`, assigns it to that member, and delivers `[REVIEW]`. A completion that still owes a review wakes nobody: its dependents wait for the verdict, and completing the review is what releases them.
+When a shared task reaches `completed`, every `pending` task that names it as a blocker, has an owner, and has no remaining open blocker receives one durable `[TASK READY]` message. The same completion also opens `Review: <subject>` for the reviewer declared in `cluster.yml`, assigns it to that member, and delivers `[REVIEW]`. A completion that still owes a review wakes nobody: its dependents wait for the verdict, and completing the review is what releases them. A released task that carries no owner but declares one on its own `cluster-owner:` line is assigned to that member first, which is what lets a fan-out leave a synthesis task waiting for the last answer: the board refuses to assign a task that is still blocked, so a declaration can only be applied at release.
 
 A task that comes back from a rejection is counted through the reviews opened for it: below `maxRetries` the owner receives `[RETRY k/max]`, and at the budget the Lead receives `[ESCALATE]` instead of another round.
 
@@ -70,6 +70,7 @@ A released owner starts working without the Lead polling the board. A completion
 | [`src/review.ts`](src/review.ts) | Review request, rejection counting, and both verdict texts |
 | [`src/spend.ts`](src/spend.ts) | Usage folding, budget verdicts, and both budget notices |
 | [`src/broadcast.ts`](src/broadcast.ts) | Broadcast target selection and the wording of every refusal |
+| [`src/handoff.ts`](src/handoff.ts) | Release-time assignment and the wake-up that carries it |
 | [`src/index.ts`](src/index.ts) | Plugin: event subscription, roster resolution, queued delivery |
 
 The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
@@ -96,7 +97,7 @@ Replay suppression differs per rule because the right key differs: the board key
 
 #### What the model sees
 
-One durable user-role message per decision, delivered to the member that must act. Every text names the task or the member, the action, and the budget when one applies; the Lead receives no notice about its own tasks, and a member with nothing to act on receives nothing. The fixed texts are owned by [`src/ready.ts`](src/ready.ts), [`src/review.ts`](src/review.ts), and [`src/spend.ts`](src/spend.ts):
+One durable user-role message per decision, delivered to the member that must act. Every text names the task or the member, the action, and the budget when one applies; the Lead receives no notice about its own tasks, and a member with nothing to act on receives nothing. The fixed texts are owned by [`src/ready.ts`](src/ready.ts), [`src/review.ts`](src/review.ts), [`src/spend.ts`](src/spend.ts), and [`src/handoff.ts`](src/handoff.ts), which carries the variant that arrives together with an assignment:
 
 ##### Verbatim text for this field, when needed
 
@@ -131,6 +132,7 @@ Append-only on both sides: the result and every delivered message land after the
 <a id="known-limitations-and-deferred-work"></a>
 
 - **Wake-up only** — a notice is a message, not a claim. The owner still has to call `team_task_get` and `team_task_update`, so a member that ignores its mailbox stalls the edge.
+- **A handoff depends on its declaration surviving to release** — the `cluster-owner:` line must still be in the description when the last blocker lands, and the name must still be on the roster; otherwise the task stays unowned and nobody is woken for it.
 - **Budget notice, not a hard stop** — an over-budget member is asked to wind down once per Session and nothing cancels its turn, so a member that ignores the notice keeps spending.
 - **Review verdicts ride the board** — approval is completing the review task and rejection is reopening the reviewed one. A reviewer that does neither leaves the review open forever.
 - **Dependents wait on the verdict** — because a reviewed completion releases nobody, a reviewer that never approves leaves everything downstream of that task blocked, and only an operator or the Lead can break the tie.

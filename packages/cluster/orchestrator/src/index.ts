@@ -11,12 +11,13 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-experimental-agent-team'
+import { TeamTaskId } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 import { broadcastTargets } from './broadcast.ts'
+import { handoffMessage, ownershipHandoffs } from './handoff.ts'
 import { readyMessage, readyNotices, releaseDecision } from './ready.ts'
 import { retryMessage, retryNotice, reviewMessage, reviewRequest, type ReviewRequest } from './review.ts'
 import { addUsage, budgetNotice, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
@@ -237,6 +238,35 @@ export function apply(ctx: Context, config: Config = {}): void {
     }))
   }
 
+  /**
+   * Assign every released task that declares an owner.
+   *
+   * The board refuses to assign a blocked task, so a declared owner can only be
+   * applied once the task is released — and until it is applied the readiness
+   * notice has nobody to wake. A lost compare-and-set means the board moved
+   * first: the row is somebody else's decision by then, so it is skipped.
+   * @param lead - the Lead, whose credential authorizes the reassignment.
+   * @param tasks - the board read for this completion.
+   * @param releasedTaskId - the task whose dependents this completion released.
+   */
+  const handOver = async (lead: Agent, tasks: readonly TeamTaskView[], releasedTaskId: string): Promise<void> => {
+    const memberNames = ctx.agentTeams.listMembers(lead).map(member => member.name)
+    for (const handoff of ownershipHandoffs(tasks, releasedTaskId, memberNames)) {
+      try {
+        await ctx.agentTeams.updateTask(lead, {
+          taskId: TeamTaskId(handoff.taskId),
+          expectedRevision: handoff.revision,
+          action: 'reassign',
+          owner: handoff.ownerName,
+        })
+      } catch (error: unknown) {
+        ctx.logger.warn('cluster-orchestrator: could not assign %s: %s', handoff.taskId, String(error))
+        continue
+      }
+      await tryDeliver(lead, handoff.ownerName, handoffMessage(handoff))
+    }
+  }
+
   const wakeReleased = async (lead: Agent, tasks: readonly TeamTaskView[], releasedTaskId: string): Promise<void> => {
     for (const notice of readyNotices(tasks, releasedTaskId)) {
       await deliver(lead, notice.ownerName, readyMessage(notice))
@@ -376,7 +406,10 @@ export function apply(ctx: Context, config: Config = {}): void {
           : reviewRequest(tasks, taskId, review.reviewer)
         if (config.dependencyAutoUnlock !== false && task.status === 'completed') {
           const released = releaseDecision(tasks, taskId, request !== undefined)
-          if (released !== undefined) await wakeReleased(lead, tasks, released)
+          if (released !== undefined) {
+            await handOver(lead, tasks, released)
+            await wakeReleased(lead, tasks, released)
+          }
         }
         if (review === undefined) return
         if (request !== undefined) {

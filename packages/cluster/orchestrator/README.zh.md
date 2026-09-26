@@ -44,7 +44,7 @@ kind: "package-reference"
 
 ### 获得的功能
 
-当某个共享任务到达 `completed` 时，所有把它列为阻塞项、已有 owner、且再无未完成阻塞项的 `pending` 任务，都会收到一条 durable 的 `[TASK READY]` 消息。同一次完成还会为 `cluster.yml` 声明的 reviewer 开出 `Review: <原标题>`、把它分配给该成员，并投递 `[REVIEW]`。仍欠着评审的完成事件谁都不唤醒：它的下游要等裁决，而"完成那次评审"才是释放下游的事实。
+当某个共享任务到达 `completed` 时，所有把它列为阻塞项、已有 owner、且再无未完成阻塞项的 `pending` 任务，都会收到一条 durable 的 `[TASK READY]` 消息。同一次完成还会为 `cluster.yml` 声明的 reviewer 开出 `Review: <原标题>`、把它分配给该成员，并投递 `[REVIEW]`。仍欠着评审的完成事件谁都不唤醒：它的下游要等裁决，而"完成那次评审"才是释放下游的事实。被放行但无主、却在自身 `cluster-owner:` 行上声明了主人的任务，会先被指派给那位成员——这正是"扇出之后留一个等待最后一份答案的汇总任务"得以成立的原因：任务板拒绝给仍被阻塞的任务指派，所以声明只能在放行那一刻兑现。
 
 被驳回后回来的任务，按"为它开过的评审数"计数：未超 `maxRetries` 时 owner 收到 `[RETRY k/max]`，到达预算后由 Lead 收到 `[ESCALATE]`，不再进入下一轮。
 
@@ -70,6 +70,7 @@ Lead 还多了一个工具：`broadcast_message` 把一条 durable 消息发给�
 | [`src/review.ts`](src/review.ts) | 评审请求、驳回计数，以及两种裁决文本 |
 | [`src/spend.ts`](src/spend.ts) | 用量折算、预算裁决，以及两条预算通知 |
 | [`src/broadcast.ts`](src/broadcast.ts) | 广播目标选择，以及每条拒绝理由的措辞 |
+| [`src/handoff.ts`](src/handoff.ts) | 放行时按声明指派，以及随之送达的那条唤醒 |
 | [`src/index.ts`](src/index.ts) | 插件：事件订阅、成员解析、串行投递 |
 
 插件订阅 `session/event` 并过滤出 durable 提交而非轮询，因此每条通知都搭在"改变了任务板的同一个事实"上。所有判定都在纯模块里，这正是每条规则都能脱离活的 Team 被测试的原因。投递串在一条 promise 链上，慢消息不会让后一次事件超越它。
@@ -96,7 +97,7 @@ Lead 还多了一个工具：`broadcast_message` 把一条 durable 消息发给�
 
 #### 模型看到什么
 
-每次决策产生一条 durable 的 user 角色消息，投递给必须行动的那个成员。每条文本都会指出任务或成员、要执行的动作，以及适用时的预算；Lead 不会收到关于自己任务的这类通知，无事可做的成员什么也收不到。这些固定文本由 [`src/ready.ts`](src/ready.ts)、[`src/review.ts`](src/review.ts) 与 [`src/spend.ts`](src/spend.ts) 拥有：
+每次决策产生一条 durable 的 user 角色消息，投递给必须行动的那个成员。每条文本都会指出任务或成员、要执行的动作，以及适用时的预算；Lead 不会收到关于自己任务的这类通知，无事可做的成员什么也收不到。这些固定文本由 [`src/ready.ts`](src/ready.ts)、[`src/review.ts`](src/review.ts)、[`src/spend.ts`](src/spend.ts) 与 [`src/handoff.ts`](src/handoff.ts) 拥有，最后一个负责那条"随指派一起到达"的变体：
 
 ##### 该字段的逐字文本（需要时）
 
@@ -131,6 +132,7 @@ Lead 历史里多一次工具调用与一条简短的 JSON 结果；每个被投
 <a id="known-limitations-and-deferred-work"></a>
 
 - **只是唤醒** — 通知是一条消息，不是认领。owner 仍须调用 `team_task_get` 与 `team_task_update`，因此无视邮箱的成员会让这条边卡住。
+- **指派依赖声明活到放行那一刻** — 最后一个阻塞项落地时，`cluster-owner:` 行必须仍在描述里、且该名字仍在花名册上；否则该任务保持无主，也就没有人会为它被唤醒。
 - **预算只通知，不强停** — 超预算的成员每个会话被要求收尾一次，且没有任何东西取消它这一轮，因此无视通知的成员会继续花费。
 - **评审裁决依赖任务板** — 批准 = 完成评审任务，驳回 = 重开被审任务。两者都不做的 reviewer 会让评审永远开着。
 - **下游等的是裁决** — 正因为被评审的完成事件不释放任何人，始终不批准的 reviewer 会让该任务下游全部卡住，只能靠人工或 Lead 打破僵局。
