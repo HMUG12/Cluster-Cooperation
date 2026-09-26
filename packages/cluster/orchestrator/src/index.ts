@@ -18,6 +18,14 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 import { broadcastTargets } from './broadcast.ts'
 import { handoffMessage, ownershipHandoffs } from './handoff.ts'
+import {
+  answerDescription,
+  answerSubject,
+  questionMessage,
+  roundtablePlan,
+  synthesisDescription,
+  synthesisSubject,
+} from './roundtable.ts'
 import { readyMessage, readyNotices, releaseDecision } from './ready.ts'
 import { retryMessage, retryNotice, reviewMessage, reviewRequest, type ReviewRequest } from './review.ts'
 import { addUsage, budgetNotice, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
@@ -83,6 +91,50 @@ const BROADCAST_VALUE_SCHEMA = {
         additionalProperties: false,
         properties: {
           target: { type: 'string', required: true },
+          messageId: { type: 'string', required: true },
+          status: { type: 'string', required: true, enum: ['accepted', 'queued'] },
+        },
+      },
+    },
+    skipped: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          target: { type: 'string', required: true },
+          reason: { type: 'string', required: true },
+        },
+      },
+    },
+  },
+} as const
+
+/** One roundtable result, matching what the tool promises the model. */
+const ROUNDTABLE_VALUE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    round: {
+      type: 'object',
+      required: true,
+      additionalProperties: false,
+      properties: {
+        taskId: { type: 'string', required: true },
+        subject: { type: 'string', required: true },
+        ownerName: { type: 'string', required: true },
+      },
+    },
+    asked: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          target: { type: 'string', required: true },
+          taskId: { type: 'string', required: true },
           messageId: { type: 'string', required: true },
           status: { type: 'string', required: true, enum: ['accepted', 'queued'] },
         },
@@ -202,6 +254,79 @@ export function apply(ctx: Context, config: Config = {}): void {
    * @param agent - the Agent whose scope owns the tool, always the Lead.
    * @returns the disposer, or undefined when the composition mounts no tool runtime.
    */
+  /**
+   * Register the roundtable tool, when this scope can register tools.
+   *
+   * The synthesis task is created last so one write carries both its blockers
+   * and the names of the tasks it collects, and it is left unowned: the
+   * declaration in its description is what the release-time handoff assigns.
+   * @param agent - the Agent whose scope owns the tool, always the Lead.
+   * @returns the disposer, or undefined when the composition mounts no tool runtime.
+   */
+  const registerRoundtable = (agent: Agent): (() => void) | undefined => {
+    const tools = toolRuntime(agent.ctx)
+    if (tools === undefined) return undefined
+    return tools.register(defineTool({
+      name: 'roundtable',
+      description: 'Ask several teammates one question in parallel, with a synthesis task that is assigned to a teammate the moment the last answer lands. Only the Team Lead may call this tool.',
+      parameters: {
+        question: { type: 'string', required: true, description: 'The question every participant must answer.' },
+        synthesize: {
+          type: 'string',
+          required: true,
+          description: 'Teammate that collects the answers once the last one lands. Never the Lead, which no notice can wake.',
+        },
+        participants: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Teammate names to ask; omit to ask every current teammate.',
+        },
+      },
+      output: jsonOutput(ROUNDTABLE_VALUE_SCHEMA),
+      async execute(args, exec) {
+        const caller = exec.agent
+        if (caller === undefined) throw new Error('roundtable requires a calling Agent')
+        const decision = roundtablePlan(args.participants, ctx.agentTeams.listMembers(caller), args.synthesize)
+        if (!decision.ok) throw new Error(`roundtable refused: ${decision.reason}`)
+        const { plan } = decision
+        const asked: Array<{ target: string; taskId: string; messageId: string; status: 'accepted' | 'queued' }> = []
+        for (const target of plan.ask) {
+          const task = await ctx.agentTeams.createTask(caller, {
+            subject: answerSubject(args.question),
+            description: answerDescription(args.question, plan.synthesizer),
+          })
+          await ctx.agentTeams.updateTask(caller, {
+            taskId: task.id,
+            expectedRevision: task.revision,
+            action: 'reassign',
+            owner: target,
+          })
+          const sent = await ctx.agentTeams.sendMessage(caller, {
+            target,
+            content: [{ type: 'text', text: questionMessage(String(task.id), args.question) }],
+            signal: exec.signal,
+          })
+          asked.push({
+            target,
+            taskId: String(task.id),
+            messageId: String(sent.messageId),
+            status: sent.status,
+          })
+        }
+        const round = await ctx.agentTeams.createTask(caller, {
+          subject: synthesisSubject(args.question),
+          description: synthesisDescription(args.question, plan.synthesizer, asked.map(entry => entry.taskId)),
+          blockedBy: asked.map(entry => TeamTaskId(entry.taskId)),
+        })
+        return {
+          round: { taskId: String(round.id), subject: round.subject, ownerName: plan.synthesizer },
+          asked,
+          skipped: plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason })),
+        }
+      },
+    }))
+  }
+
   const registerBroadcast = (agent: Agent): (() => void) | undefined => {
     const tools = toolRuntime(agent.ctx)
     if (tools === undefined) return undefined
@@ -431,8 +556,12 @@ export function apply(ctx: Context, config: Config = {}): void {
     } catch {
       return
     }
-    const registered = registerBroadcast(agent)
-    if (registered !== undefined) broadcasts.set(agent, registered)
+    const registered = [registerBroadcast(agent), registerRoundtable(agent)]
+      .filter((dispose): dispose is () => void => dispose !== undefined)
+    if (registered.length === 0) return
+    broadcasts.set(agent, () => {
+      for (const dispose of registered) dispose()
+    })
   }
   for (const agent of ctx.agents.list()) maybeInstallBroadcast(agent)
   ctx.on('agent/created', ({ agent }) => { maybeInstallBroadcast(agent) })

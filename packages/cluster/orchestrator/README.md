@@ -50,7 +50,7 @@ A task that comes back from a rejection is counted through the reviews opened fo
 
 Every durable model call also folds into its session's spend. A member that goes past the `tokenBudget` its cluster declares is told once to finish what is in flight and to carry the overrun to the Lead itself.
 
-The Lead also gains one tool: `broadcast_message` sends a single durable message to every current teammate, or to the members it names, and reports each refusal with a reason instead of dropping it.
+The Lead also gains two tools. `broadcast_message` sends a single durable message to every current teammate, or to the members it names, and reports each refusal with a reason instead of dropping it. `roundtable` goes further: one call asks a question of several teammates as tasks they own, and leaves one synthesis task blocked by all their answers, so the collector it names is assigned and woken the moment the last answer lands.
 
 ### What success and failure look like
 
@@ -71,6 +71,7 @@ A released owner starts working without the Lead polling the board. A completion
 | [`src/spend.ts`](src/spend.ts) | Usage folding, budget verdicts, and both budget notices |
 | [`src/broadcast.ts`](src/broadcast.ts) | Broadcast target selection and the wording of every refusal |
 | [`src/handoff.ts`](src/handoff.ts) | Release-time assignment and the wake-up that carries it |
+| [`src/roundtable.ts`](src/roundtable.ts) | Roundtable planning and every text one round emits |
 | [`src/index.ts`](src/index.ts) | Plugin: event subscription, roster resolution, queued delivery |
 
 The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
@@ -127,6 +128,20 @@ One tool call and one short JSON result in the Lead's history, plus one durable 
 
 Append-only on both sides: the result and every delivered message land after the reusable request prefix, so no cached prefix is invalidated.
 
+### The roundtable tool
+
+#### What the model sees
+
+`roundtable` asks one question of several teammates at once: it opens one answer task per participant, assigns each to its owner, sends each a `[ROUNDTABLE]` notice naming that task, and leaves one `Synthesis: ...` task blocked by every answer. That synthesis task declares its collector on a `cluster-owner:` line, so the release-time handoff assigns it the moment the last answer lands and wakes that member. The result reports the round's task id and every participant it refused.
+
+#### Token effect
+
+One tool call and one JSON result in the Lead's history, plus one task notice per participant and one assignment notice to the collector when the round closes.
+
+#### KV Cache effect
+
+Append-only everywhere: every notice lands after the reusable request prefix, so no cached prefix is invalidated.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -140,6 +155,7 @@ Append-only on both sides: the result and every delivered message land after the
 - **Completed-only trigger** — reopening a completed task does not re-notify, and a new blocker added after a completion is not replayed.
 - **No round control** — turn scheduling, per-round caps, and compaction policy are not part of this package.
 - **The broadcast tool sits outside the tool catalog** — `docs/tool-catalog.md` is generated from `tool-*` packages and this plugin is not one, so the tool is registered and documented here instead. Promoting it to a `tool-*` package would bring it into the catalog and into the Model Experience link checks.
+- **A roundtable is only as private as the board** — every answer task is readable by every member, so answers are public, and an enabled review policy reviews each answer and the synthesis like any other completion.
 
 <a id="dev-note"></a>
 ### Dev Note
