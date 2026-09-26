@@ -318,6 +318,27 @@ export function apply(ctx: Context, config: Config = {}): void {
    * @param agent - the Agent whose scope owns the tool, always the Lead.
    * @returns the disposer, or undefined when the composition mounts no tool runtime.
    */
+  /**
+   * Run one board or mailbox step, reporting a failure instead of abandoning the rest.
+   *
+   * Every protocol here mutates one target at a time, and the roster can refuse a
+   * target a plan expected to work with. Letting the first refusal propagate would
+   * skip every target after it and leave whatever rows the step had already
+   * created, so each target is attempted alone and its failure becomes a reason
+   * the model can read.
+   * @param step - one delivery or board mutation.
+   * @returns the value, or the message the failure carries.
+   */
+  const attempt = async <T>(step: () => Promise<T>): Promise<
+    { readonly ok: true; readonly value: T } | { readonly ok: false; readonly reason: string }
+  > => {
+    try {
+      return { ok: true, value: await step() }
+    } catch (error: unknown) {
+      return { ok: false, reason: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
   const registerRoundtable = (agent: Agent): (() => void) | undefined => {
     const tools = toolRuntime(agent.ctx)
     if (tools === undefined) return undefined
@@ -345,28 +366,41 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (!decision.ok) throw new Error(`roundtable refused: ${decision.reason}`)
         const { plan } = decision
         const asked: Array<{ target: string; taskId: string; messageId: string; status: 'accepted' | 'queued' }> = []
+        const refused = plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason }))
         for (const target of plan.ask) {
-          const task = await ctx.agentTeams.createTask(caller, {
-            subject: answerSubject(args.question),
-            description: answerDescription(args.question, plan.synthesizer),
+          const setup = await attempt(async () => {
+            const task = await ctx.agentTeams.createTask(caller, {
+              subject: answerSubject(args.question),
+              description: answerDescription(args.question, plan.synthesizer),
+            })
+            await ctx.agentTeams.updateTask(caller, {
+              taskId: task.id,
+              expectedRevision: task.revision,
+              action: 'reassign',
+              owner: target,
+            })
+            const sent = await ctx.agentTeams.sendMessage(caller, {
+              target,
+              content: [{ type: 'text', text: questionMessage(String(task.id), args.question) }],
+              signal: exec.signal,
+            })
+            return {
+              taskId: String(task.id),
+              messageId: String(sent.messageId),
+              status: sent.status,
+            }
           })
-          await ctx.agentTeams.updateTask(caller, {
-            taskId: task.id,
-            expectedRevision: task.revision,
-            action: 'reassign',
-            owner: target,
-          })
-          const sent = await ctx.agentTeams.sendMessage(caller, {
-            target,
-            content: [{ type: 'text', text: questionMessage(String(task.id), args.question) }],
-            signal: exec.signal,
-          })
-          asked.push({
-            target,
-            taskId: String(task.id),
-            messageId: String(sent.messageId),
-            status: sent.status,
-          })
+          if (!setup.ok) {
+            refused.push({ target, reason: setup.reason })
+            continue
+          }
+          asked.push({ target, ...setup.value })
+        }
+        // A synthesis task with no answers blocks on nothing, and readiness alone
+        // wakes nobody, so a round that asked nobody has to fail loudly instead of
+        // leaving a task whose collector is never assigned.
+        if (asked.length === 0) {
+          throw new Error(`roundtable asked nobody: ${refused.map(skip => `${skip.target} (${skip.reason})`).join('; ')}`)
         }
         const round = await ctx.agentTeams.createTask(caller, {
           subject: synthesisSubject(args.question),
@@ -376,7 +410,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         return {
           round: { taskId: String(round.id), subject: round.subject, ownerName: plan.synthesizer },
           asked,
-          skipped: plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason })),
+          skipped: refused,
         }
       },
     }))
@@ -418,28 +452,41 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (!decision.ok) throw new Error(`motion refused: ${decision.reason}`)
         const { plan } = decision
         const ballots: Array<{ target: string; taskId: string; messageId: string; status: 'accepted' | 'queued' }> = []
+        const refused = plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason }))
         for (const target of plan.ask) {
-          const ballot = await ctx.agentTeams.createTask(caller, {
-            subject: ballotSubject(args.motion),
-            description: ballotDescription(args.motion, plan.counter),
+          const setup = await attempt(async () => {
+            const ballot = await ctx.agentTeams.createTask(caller, {
+              subject: ballotSubject(args.motion),
+              description: ballotDescription(args.motion, plan.counter),
+            })
+            await ctx.agentTeams.updateTask(caller, {
+              taskId: ballot.id,
+              expectedRevision: ballot.revision,
+              action: 'reassign',
+              owner: target,
+            })
+            const sent = await ctx.agentTeams.sendMessage(caller, {
+              target,
+              content: [{ type: 'text', text: ballotMessage(String(ballot.id), args.motion) }],
+              signal: exec.signal,
+            })
+            return {
+              taskId: String(ballot.id),
+              messageId: String(sent.messageId),
+              status: sent.status,
+            }
           })
-          await ctx.agentTeams.updateTask(caller, {
-            taskId: ballot.id,
-            expectedRevision: ballot.revision,
-            action: 'reassign',
-            owner: target,
-          })
-          const sent = await ctx.agentTeams.sendMessage(caller, {
-            target,
-            content: [{ type: 'text', text: ballotMessage(String(ballot.id), args.motion) }],
-            signal: exec.signal,
-          })
-          ballots.push({
-            target,
-            taskId: String(ballot.id),
-            messageId: String(sent.messageId),
-            status: sent.status,
-          })
+          if (!setup.ok) {
+            refused.push({ target, reason: setup.reason })
+            continue
+          }
+          ballots.push({ target, ...setup.value })
+        }
+        // A tally with no ballots blocks on nothing, and readiness alone wakes
+        // nobody, so a motion nobody could vote in has to fail loudly rather than
+        // leave a tally whose counter is never assigned.
+        if (ballots.length === 0) {
+          throw new Error(`motion polled nobody: ${refused.map(skip => `${skip.target} (${skip.reason})`).join('; ')}`)
         }
         const tally = await ctx.agentTeams.createTask(caller, {
           subject: tallySubject(args.motion),
@@ -449,7 +496,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         return {
           tally: { taskId: String(tally.id), subject: tally.subject, ownerName: plan.counter },
           ballots,
-          skipped: plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason })),
+          skipped: refused,
         }
       },
     }))
@@ -475,18 +522,20 @@ export function apply(ctx: Context, config: Config = {}): void {
         if (caller === undefined) throw new Error('broadcast_message requires a calling Agent')
         const plan = broadcastTargets(args.targets, ctx.agentTeams.listMembers(caller))
         const delivered: Array<{ target: string; messageId: string; status: 'accepted' | 'queued' }> = []
+        const refused = plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason }))
         for (const target of plan.send) {
-          const sent = await ctx.agentTeams.sendMessage(caller, {
+          const sent = await attempt(() => ctx.agentTeams.sendMessage(caller, {
             target,
             content: [{ type: 'text', text: args.message }],
             signal: exec.signal,
-          })
-          delivered.push({ target, messageId: String(sent.messageId), status: sent.status })
+          }))
+          if (!sent.ok) {
+            refused.push({ target, reason: sent.reason })
+            continue
+          }
+          delivered.push({ target, messageId: String(sent.value.messageId), status: sent.value.status })
         }
-        return {
-          delivered,
-          skipped: plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason })),
-        }
+        return { delivered, skipped: refused }
       },
     }))
   }

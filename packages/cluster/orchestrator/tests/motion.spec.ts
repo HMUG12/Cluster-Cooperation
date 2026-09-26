@@ -73,6 +73,19 @@ describe('motionPlan', () => {
     expect(motionPlan(undefined, ROSTER, 'broken').ok).toBe(false)
   })
 
+  it('refuses a counter the board could not assign yet, and skips such a voter', () => {
+    const planning = [...ROSTER, member('newbie', 'teammate', 'provisioning')]
+    const refused = motionPlan(undefined, planning, 'newbie')
+    expect(refused.ok).toBe(false)
+    if (!refused.ok) expect(refused.reason).toContain('still provisioning')
+
+    const decision = motionPlan(['coder', 'newbie'], planning, 'tester')
+    expect(decision.ok).toBe(true)
+    if (!decision.ok) return
+    expect(decision.plan.ask).toEqual(['coder'])
+    expect(decision.plan.skipped.map(skip => skip.target)).toEqual(['newbie'])
+  })
+
   it('refuses a motion nobody can vote in', () => {
     const alone = [member('lead', 'lead'), member('tester', 'teammate')]
     const decision = motionPlan(undefined, alone, 'tester')

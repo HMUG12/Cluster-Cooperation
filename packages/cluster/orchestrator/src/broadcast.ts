@@ -33,6 +33,7 @@ const EMPTY = 'a target name cannot be empty; omit targets to address every team
 const SELF = 'the Lead cannot message itself; name teammates, or omit targets to address all of them'
 const UNKNOWN = 'not a member of this Team; call list_agents for the current roster'
 const FAILED = 'this member failed at provisioning; spawn a replacement or finish its work yourself'
+const PROVISIONING = 'this member is still provisioning; it can neither receive a message nor hold a task until it is active'
 
 /**
  * Why one member cannot collect a fan-out, or undefined when it can.
@@ -52,6 +53,9 @@ export function collectorRefusal(members: readonly TeamMemberView[], name: strin
   const member = members.find(candidate => candidate.name === name)
   if (member === undefined) {
     return `"${name}" is not a member of this Team; call list_agents for the current roster`
+  }
+  if (member.status === 'provisioning') {
+    return `"${name}" is still provisioning, so it could not be handed the collecting task; wait for it to become active`
   }
   if (member.status === 'failed') {
     return `"${name}" failed at provisioning; spawn a replacement or name another collector`
@@ -95,6 +99,14 @@ export function broadcastTargets(
     const member = members.find(candidate => candidate.name === target)
     if (member === undefined) {
       skipped.push({ target, reason: UNKNOWN })
+      return
+    }
+    // Both the mailbox and the board resolve a target through the durable
+    // roster's active phase, so a teammate that is still provisioning throws on
+    // delivery and on assignment alike. Reporting it here keeps every protocol
+    // from mutating the board and then failing halfway through.
+    if (member.status === 'provisioning') {
+      skipped.push({ target, reason: PROVISIONING })
       return
     }
     if (member.status === 'failed') {

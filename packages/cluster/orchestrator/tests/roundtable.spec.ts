@@ -63,6 +63,19 @@ describe('roundtablePlan', () => {
     expect(decision.reason).toContain('failed at provisioning')
   })
 
+  it('refuses a collector the board could not assign yet, and skips such a participant', () => {
+    const planning = [...ROSTER, member('newbie', 'teammate', 'provisioning')]
+    const refused = roundtablePlan(undefined, planning, 'newbie')
+    expect(refused.ok).toBe(false)
+    if (!refused.ok) expect(refused.reason).toContain('still provisioning')
+
+    const decision = roundtablePlan(['coder', 'newbie'], planning, 'tester')
+    expect(decision.ok).toBe(true)
+    if (!decision.ok) return
+    expect(decision.plan.ask).toEqual(['coder'])
+    expect(decision.plan.skipped.map(skip => skip.target)).toEqual(['newbie'])
+  })
+
   it('refuses a roundtable nobody can be asked in', () => {
     const alone = [member('lead', 'lead'), member('tester', 'teammate')]
     const decision = roundtablePlan(undefined, alone, 'tester')

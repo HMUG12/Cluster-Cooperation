@@ -172,6 +172,7 @@ Append-only everywhere: every notice lands after the reusable request prefix, so
 - **The broadcast tool sits outside the tool catalog** — `docs/tool-catalog.md` is generated from `tool-*` packages and this plugin is not one, so the tool is registered and documented here instead. Promoting it to a `tool-*` package would bring it into the catalog and into the Model Experience link checks.
 - **A roundtable is only as private as the board** — every answer task is readable by every member, so answers are public, and an enabled review policy reviews each answer and the synthesis like any other completion.
 - **A count is only as good as the lines it reads** — a ballot completed without a readable `vote:` line is counted as unrecorded and named as a caveat in the notice, so a motion can close with a count that does not add up to its roll rather than with a verdict nobody can check.
+- **A teammate that is still provisioning cannot be reached** — the mailbox and the board both resolve a target through the roster's active phase, so asking a member that is still starting up throws on delivery and on assignment alike. Every protocol reports that member as skipped with the reason instead of mutating the board and then failing halfway, which is what a fan-out issued right after `spawn_teammate` would otherwise hit.
 
 <a id="dev-note"></a>
 ### Dev Note

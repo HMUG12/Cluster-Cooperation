@@ -44,6 +44,21 @@ describe('broadcastTargets', () => {
     expect(broadcastTargets(['coder-web'], ROSTER).send).toEqual(['coder-web'])
   })
 
+  it('skips a teammate that is still provisioning, which neither the mailbox nor the board reaches', () => {
+    const planning = [...ROSTER, member('newbie', 'teammate', 'provisioning')]
+    const plan = broadcastTargets(undefined, planning)
+    expect(plan.send).toEqual(['coder-api', 'coder-web'])
+    expect(plan.skipped.map(skip => skip.target)).toEqual(['broken', 'newbie'])
+    expect(plan.skipped[1]?.reason).toContain('still provisioning')
+  })
+
+  it('refuses a named target that is still provisioning', () => {
+    const planning = [...ROSTER, member('newbie', 'teammate', 'provisioning')]
+    const plan = broadcastTargets(['newbie'], planning)
+    expect(plan.send).toEqual([])
+    expect(plan.skipped[0]?.reason).toContain('still provisioning')
+  })
+
   it('treats an empty request as the whole team', () => {
     expect(broadcastTargets([], ROSTER).send).toEqual(['coder-api', 'coder-web'])
   })
