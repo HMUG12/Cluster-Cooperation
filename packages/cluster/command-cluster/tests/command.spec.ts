@@ -5,6 +5,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
+import type { CommandResult } from '@deepseek-ai/dsh-commands'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { TeamMemberView, TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 import * as commandCluster from '@deepseek-ai/dsh-command-cluster'
@@ -95,12 +96,12 @@ async function harness(): Promise<Harness> {
   const plugin = await ctx.plugin(commandCluster)
   const agent = stubAgent(ctx)
   await ctx.agents.register(agent)
-  const team = ctx.get('agentTeams') as TeamStub
+  const team = ctx.get('agentTeams') as unknown as TeamStub
   return { ctx, agent, team, plugin }
 }
 
 /** Execute `/cluster` through the same registry boundary a UI adapter uses. */
-async function run(test: Harness, suffix = ''): Promise<{ kind: string; text: string }> {
+async function run(test: Harness, suffix = ''): Promise<CommandResult> {
   const execution = await test.ctx.commands.execute(
     test.agent,
     `/cluster${suffix}`,
