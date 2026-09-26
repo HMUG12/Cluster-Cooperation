@@ -14,6 +14,9 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-experimental-agent-team'
 import type { TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { defineTool } from '@deepseek-ai/dsh-tools'
+import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
+import { broadcastTargets } from './broadcast.ts'
 import { readyMessage, readyNotices, releaseDecision } from './ready.ts'
 import { retryMessage, retryNotice, reviewMessage, reviewRequest, type ReviewRequest } from './review.ts'
 import { addUsage, budgetNotice, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
@@ -64,6 +67,72 @@ const SEEN_LIMIT = 512
 /** Narrow one session event to a Team task commit. */
 function isTeamTaskEvent(event: SessionEvent): event is SessionEvent & TeamTaskEvent {
   return event.type === 'team/task'
+}
+
+/** One broadcast result, matching what the tool promises the model. */
+const BROADCAST_VALUE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    delivered: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          target: { type: 'string', required: true },
+          messageId: { type: 'string', required: true },
+          status: { type: 'string', required: true, enum: ['accepted', 'queued'] },
+        },
+      },
+    },
+    skipped: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          target: { type: 'string', required: true },
+          reason: { type: 'string', required: true },
+        },
+      },
+    },
+  },
+} as const
+
+/** Declare one canonical output schema with compact model-facing JSON. */
+function jsonOutput<const S extends ValueSchemaSpec>(schema: S): {
+  schema: S
+  render: (args: unknown, value: InferValue<S>) => [{ type: 'text'; text: string }]
+} {
+  return {
+    schema,
+    render: (_args: unknown, value: InferValue<S>) => [{ type: 'text', text: JSON.stringify(value) }],
+  }
+}
+
+/** Structural view of the optional tool runtime. */
+interface ToolRuntime {
+  register(tool: unknown): () => void
+}
+
+/**
+ * Read the tool runtime when the composition mounts one.
+ *
+ * The board policy needs only `agents` and `agentTeams`, so this stays a
+ * structural lookup instead of an injection: a composition without the tool
+ * runtime has no model to call a tool, and the orchestrator must keep loading
+ * there rather than gain a requirement for a surface it does not need.
+ * @param ctx - context that may carry the tool runtime.
+ * @returns the runtime, or undefined when the composition mounts none.
+ */
+function toolRuntime(ctx: Context): ToolRuntime | undefined {
+  const found = (ctx as unknown as { get(name: string): unknown }).get('tools')
+  if (typeof found !== 'object' || found === null) return undefined
+  const register = (found as { register?: unknown }).register
+  return typeof register === 'function' ? found as ToolRuntime : undefined
 }
 
 /**
@@ -122,6 +191,50 @@ export function apply(ctx: Context, config: Config = {}): void {
     } catch (error: unknown) {
       ctx.logger.warn('cluster-orchestrator: notice to "%s" failed: %s', target, String(error))
     }
+  }
+
+  /**
+   * Register the one Lead-facing tool, when this scope can register tools.
+   *
+   * Deliveries stay sequential so the returned order is the order the caller
+   * named, and one refused target is reported rather than aborting the rest.
+   * @param agent - the Agent whose scope owns the tool, always the Lead.
+   * @returns the disposer, or undefined when the composition mounts no tool runtime.
+   */
+  const registerBroadcast = (agent: Agent): (() => void) | undefined => {
+    const tools = toolRuntime(agent.ctx)
+    if (tools === undefined) return undefined
+    return tools.register(defineTool({
+      name: 'broadcast_message',
+      description: 'Send one durable message to several Team members at once. Omitting targets addresses every current teammate. Only the Team Lead may call this tool.',
+      parameters: {
+        message: { type: 'string', required: true, description: 'Self-contained message for every target.' },
+        targets: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Member names to address, in delivery order; omit to address every current teammate.',
+        },
+      },
+      output: jsonOutput(BROADCAST_VALUE_SCHEMA),
+      async execute(args, exec) {
+        const caller = exec.agent
+        if (caller === undefined) throw new Error('broadcast_message requires a calling Agent')
+        const plan = broadcastTargets(args.targets, ctx.agentTeams.listMembers(caller))
+        const delivered: Array<{ target: string; messageId: string; status: 'accepted' | 'queued' }> = []
+        for (const target of plan.send) {
+          const sent = await ctx.agentTeams.sendMessage(caller, {
+            target,
+            content: [{ type: 'text', text: args.message }],
+            signal: exec.signal,
+          })
+          delivered.push({ target, messageId: String(sent.messageId), status: sent.status })
+        }
+        return {
+          delivered,
+          skipped: plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason })),
+        }
+      },
+    }))
   }
 
   const wakeReleased = async (lead: Agent, tasks: readonly TeamTaskView[], releasedTaskId: string): Promise<void> => {
@@ -277,8 +390,28 @@ export function apply(ctx: Context, config: Config = {}): void {
     })
   })
 
+  const broadcasts = new Map<Agent, () => void>()
+  const maybeInstallBroadcast = (agent: Agent): void => {
+    if (broadcasts.has(agent)) return
+    try {
+      if (ctx.agentTeams.tryMembership(agent)?.role !== 'lead') return
+    } catch {
+      return
+    }
+    const registered = registerBroadcast(agent)
+    if (registered !== undefined) broadcasts.set(agent, registered)
+  }
+  for (const agent of ctx.agents.list()) maybeInstallBroadcast(agent)
+  ctx.on('agent/created', ({ agent }) => { maybeInstallBroadcast(agent) })
+  ctx.on('agent/disposed', ({ agent }) => {
+    broadcasts.get(agent)?.()
+    broadcasts.delete(agent)
+  })
+
   ctx.effect(() => () => {
     controller.abort()
+    for (const dispose of broadcasts.values()) dispose()
+    broadcasts.clear()
     return tail
   }, 'cluster-orchestrator.boardCoordination()')
 }

@@ -50,6 +50,8 @@ A task that comes back from a rejection is counted through the reviews opened fo
 
 Every durable model call also folds into its session's spend. A member that goes past the `tokenBudget` its cluster declares is told once to finish what is in flight and to carry the overrun to the Lead itself.
 
+The Lead also gains one tool: `broadcast_message` sends a single durable message to every current teammate, or to the members it names, and reports each refusal with a reason instead of dropping it.
+
 ### What success and failure look like
 
 A released owner starts working without the Lead polling the board. A completion that releases nobody sends nothing, and replaying the same completion is a no-op. A delivery failure is logged and never fails the turn that completed the task.
@@ -67,6 +69,7 @@ A released owner starts working without the Lead polling the board. A completion
 | [`src/ready.ts`](src/ready.ts) | Readiness arithmetic and the wake-up text |
 | [`src/review.ts`](src/review.ts) | Review request, rejection counting, and both verdict texts |
 | [`src/spend.ts`](src/spend.ts) | Usage folding, budget verdicts, and both budget notices |
+| [`src/broadcast.ts`](src/broadcast.ts) | Broadcast target selection and the wording of every refusal |
 | [`src/index.ts`](src/index.ts) | Plugin: event subscription, roster resolution, queued delivery |
 
 The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
@@ -109,6 +112,20 @@ Conditional and driven by the log: zero tokens until a completion, a release, a 
 
 Append-only for the recipient: each notice is appended after the reusable request prefix. It neither replaces earlier tokens nor invalidates a cached prefix.
 
+### The broadcast tool
+
+#### What the model sees
+
+A Lead that must tell its whole team one thing calls `broadcast_message` once instead of `send_message` per member. The tool takes the message and an optional `targets` list; omitting it addresses every current teammate. The result reports each delivery with its message id and status, and every target it refused with the reason — an unknown name, the Lead itself, or a member that failed at provisioning. The message text is the caller's own, unframed.
+
+#### Token effect
+
+One tool call and one short JSON result in the Lead's history, plus one durable peer message per delivered target in the recipient's history — the same per-target cost `send_message` would have had.
+
+#### KV Cache effect
+
+Append-only on both sides: the result and every delivered message land after the reusable request prefix, so no cached prefix is invalidated.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -120,6 +137,7 @@ Append-only for the recipient: each notice is appended after the reusable reques
 - **The Lead cannot be addressed** — the Team mailbox refuses a message a member sends to itself, and this plugin holds only the Lead's credential, so a notice that concerns the Lead names it inside the member's own notice and the member carries the report. An unowned escalation has no legal recipient and is logged for the operator instead.
 - **Completed-only trigger** — reopening a completed task does not re-notify, and a new blocker added after a completion is not replayed.
 - **No round control** — turn scheduling, per-round caps, and compaction policy are not part of this package.
+- **The broadcast tool sits outside the tool catalog** — `docs/tool-catalog.md` is generated from `tool-*` packages and this plugin is not one, so the tool is registered and documented here instead. Promoting it to a `tool-*` package would bring it into the catalog and into the Model Experience link checks.
 
 <a id="dev-note"></a>
 ### Dev Note

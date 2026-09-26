@@ -1,5 +1,5 @@
 {
-  "description": "Wakes the owner of a shared Team task as soon as its blockers complete",
+  "description": "Wakes the owner of a shared Team task as soon as its blockers complete, and gives the Lead one tool to brief the whole team",
   "license": "MIT",
   "main": "lib/index.js",
   "name": "@deepseek-ai/dsh-cluster-orchestrator",
@@ -26,12 +26,14 @@
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
-    "@deepseek-ai/dsh-session": "workspace:^"
+    "@deepseek-ai/dsh-session": "workspace:^",
+    "@deepseek-ai/dsh-tools": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
-    "@deepseek-ai/dsh-session": "workspace:^"
+    "@deepseek-ai/dsh-session": "workspace:^",
+    "@deepseek-ai/dsh-tools": "workspace:^"
   }
 }

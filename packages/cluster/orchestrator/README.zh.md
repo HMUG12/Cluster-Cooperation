@@ -50,6 +50,8 @@ kind: "package-reference"
 
 每一次 durable 模型调用还会折算进其会话的花费。超出 cluster 声明 `tokenBudget` 的成员会被告知一次：收尾在飞的工作，并由它自己把这次超额汇报给 Lead。
 
+Lead 还多了一个工具：`broadcast_message` 把一条 durable 消息发给当前每个 teammate，或发给它点名的成员，并把每一次拒绝连同原因报告回来，而不是悄悄丢掉。
+
 ### 成功与失败分别是什么样
 
 被解锁的 owner 无需 Lead 轮询任务板就开始工作。释放不了任何人的完成事件什么也不发，重放同一次完成也是空操作。投递失败只记录日志，绝不让"完成任务的那一轮"失败。
@@ -67,6 +69,7 @@ kind: "package-reference"
 | [`src/ready.ts`](src/ready.ts) | 就绪判定与唤醒文本 |
 | [`src/review.ts`](src/review.ts) | 评审请求、驳回计数，以及两种裁决文本 |
 | [`src/spend.ts`](src/spend.ts) | 用量折算、预算裁决，以及两条预算通知 |
+| [`src/broadcast.ts`](src/broadcast.ts) | 广播目标选择，以及每条拒绝理由的措辞 |
 | [`src/index.ts`](src/index.ts) | 插件：事件订阅、成员解析、串行投递 |
 
 插件订阅 `session/event` 并过滤出 durable 提交而非轮询，因此每条通知都搭在"改变了任务板的同一个事实"上。所有判定都在纯模块里，这正是每条规则都能脱离活的 Team 被测试的原因。投递串在一条 promise 链上，慢消息不会让后一次事件超越它。
@@ -109,6 +112,20 @@ kind: "package-reference"
 
 对接收方是追加式的：每条通知都追加在可复用的请求前缀之后。它既不替换早先的 token，也不使已缓存的前缀失效。
 
+### broadcast 工具
+
+#### 模型看到什么
+
+需要一次告知全队的 Lead，只需调用一次 `broadcast_message`，不必按成员逐个 `send_message`。该工具接收消息与可选的 `targets` 列表；省略它就面向当前每个 teammate。结果会报告每一次投递及其 message id 与状态，并报告每一个被拒绝的目标及原因——名字不存在、目标就是 Lead 自己，或该成员在派生阶段已失败。消息正文就是调用方自己的文字，不加框。
+
+#### Token 影响
+
+Lead 历史里多一次工具调用与一条简短的 JSON 结果；每个被投递的目标在接收方历史里各多一条 durable peer 消息——与逐个 `send_message` 的按目标代价完全相同。
+
+#### KV Cache 影响
+
+两侧都是追加式：结果与每条投递的消息都落在可复用请求前缀之后，因此不会使已缓存的前缀失效。
+
 ## 已知限制与延期工作
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -120,6 +137,7 @@ kind: "package-reference"
 - **Lead 无法被寻址** — Team 邮箱拒绝成员发给自己，而本插件只持有 Lead 这一个凭据，因此"与 Lead 有关"的通知只能把 Lead 写进成员自己的通知里、由成员转达；无 owner 的升级没有任何合法收件人，改为记录日志给运维。
 - **只由完成触发** — 重开一个已完成任务不会再通知，完成之后再新增的阻塞项也不会被重放。
 - **没有轮次控制** — 轮次调度、每轮上限与压缩策略不属于本包。
+- **broadcast 工具位于工具目录之外** — `docs/tool-catalog.md` 由 `tool-*` 包生成，而本插件不是其中之一，因此该工具在此注册并在此记录。把它提升为 `tool-*` 包即可进入目录，并进入 Model Experience 的链接校验。
 
 <a id="dev-note"></a>
 ### 开发备注
