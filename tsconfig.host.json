@@ -409,6 +409,7 @@
     { "path": "./packages/cluster/config" },
     { "path": "./packages/cluster/router" },
     { "path": "./packages/cluster/orchestrator" },
-    { "path": "./packages/cluster/bundle" }
+    { "path": "./packages/cluster/bundle" },
+    { "path": "./packages/cluster/command-cluster" }
   ]
 }
