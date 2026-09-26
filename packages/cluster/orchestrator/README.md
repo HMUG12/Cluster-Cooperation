@@ -50,7 +50,7 @@ A task that comes back from a rejection is counted through the reviews opened fo
 
 Every durable model call also folds into its session's spend. A member that goes past the `tokenBudget` its cluster declares is told once to finish what is in flight and to carry the overrun to the Lead itself.
 
-The Lead also gains two tools. `broadcast_message` sends a single durable message to every current teammate, or to the members it names, and reports each refusal with a reason instead of dropping it. `roundtable` goes further: one call asks a question of several teammates as tasks they own, and leaves one synthesis task blocked by all their answers, so the collector it names is assigned and woken the moment the last answer lands.
+The Lead also gains three tools. `broadcast_message` sends a single durable message to every current teammate, or to the members it names, and reports each refusal with a reason instead of dropping it. `roundtable` goes further: one call asks a question of several teammates as tasks they own, and leaves one synthesis task blocked by all their answers, so the collector it names is assigned and woken the moment the last answer lands. `motion` puts one decision to a vote: a ballot task per voter, and a `Tally:` task that is assigned to a teammate when the last ballot is cast — carrying the counted result, because the board already agrees on it.
 
 ### What success and failure look like
 
@@ -72,6 +72,7 @@ A released owner starts working without the Lead polling the board. A completion
 | [`src/broadcast.ts`](src/broadcast.ts) | Broadcast target selection and the wording of every refusal |
 | [`src/handoff.ts`](src/handoff.ts) | Release-time assignment and the wake-up that carries it |
 | [`src/roundtable.ts`](src/roundtable.ts) | Roundtable planning and every text one round emits |
+| [`src/motion.ts`](src/motion.ts) | Motion planning, ballot counting, and the notice that carries a count |
 | [`src/index.ts`](src/index.ts) | Plugin: event subscription, roster resolution, queued delivery |
 
 The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
@@ -142,6 +143,20 @@ One tool call and one JSON result in the Lead's history, plus one task notice pe
 
 Append-only everywhere: every notice lands after the reusable request prefix, so no cached prefix is invalidated.
 
+### The motion tool
+
+#### What the model sees
+
+`motion` puts one decision to a vote: it opens one ballot task per voter, assigns each to its owner, sends each a `[MOTION]` notice naming that task, and leaves one `Tally: ...` task blocked by every ballot. Each ballot records its position as a final line of `vote: for`, `vote: against`, or `vote: abstain`; the tally task declares its counter on a `cluster-owner:` line, so the release-time handoff assigns that member when the last ballot is cast — and the same notice carries the count the board already agrees on, so the counter verifies a number instead of counting.
+
+#### Token effect
+
+One tool call and one JSON result in the Lead's history, one ballot notice per voter, and one assignment notice carrying the count to the counter.
+
+#### KV Cache effect
+
+Append-only everywhere: every notice lands after the reusable request prefix, so no cached prefix is invalidated.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -156,6 +171,7 @@ Append-only everywhere: every notice lands after the reusable request prefix, so
 - **No round control** — turn scheduling, per-round caps, and compaction policy are not part of this package.
 - **The broadcast tool sits outside the tool catalog** — `docs/tool-catalog.md` is generated from `tool-*` packages and this plugin is not one, so the tool is registered and documented here instead. Promoting it to a `tool-*` package would bring it into the catalog and into the Model Experience link checks.
 - **A roundtable is only as private as the board** — every answer task is readable by every member, so answers are public, and an enabled review policy reviews each answer and the synthesis like any other completion.
+- **A count is only as good as the lines it reads** — a ballot completed without a readable `vote:` line is counted as unrecorded and named as a caveat in the notice, so a motion can close with a count that does not add up to its roll rather than with a verdict nobody can check.
 
 <a id="dev-note"></a>
 ### Dev Note

@@ -95,6 +95,18 @@ describe('ownershipHandoffs', () => {
 })
 
 describe('handoffMessage', () => {
+  it('carries a counted result when the released task is a tally', () => {
+    const message = handoffMessage({
+      taskId: 'task-9',
+      revision: 2,
+      subject: 'Tally: ship it',
+      ownerName: 'tester',
+    }, '2 for, 1 against, 0 abstain of 3 ballots.')
+    expect(message).toContain('assigned to you')
+    expect(message).toContain('2 for, 1 against, 0 abstain of 3 ballots.')
+    expect(message).toContain('team_task_update task-9')
+  })
+
   it('names the task, the assignment, and the exact board calls', () => {
     const message = handoffMessage({
       taskId: 'task-2',

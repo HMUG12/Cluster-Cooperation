@@ -14,7 +14,7 @@
  */
 
 import type { TeamMemberView } from '@deepseek-ai/dsh-experimental-agent-team'
-import { broadcastTargets, type BroadcastSkip } from './broadcast.ts'
+import { broadcastTargets, collectorRefusal, type BroadcastSkip } from './broadcast.ts'
 
 /** Who a roundtable asks, and who collects the answers. */
 export interface RoundtablePlan {
@@ -58,17 +58,8 @@ export function roundtablePlan(
   synthesize: string,
 ): RoundtableDecision {
   const synthesizer = synthesize.trim()
-  const lead = members.find(member => member.role === 'lead')
-  if (synthesizer === lead?.name) {
-    return { ok: false, reason: 'the Lead cannot collect a roundtable, because no notice can wake the Lead; name a teammate' }
-  }
-  const collector = members.find(member => member.name === synthesizer)
-  if (collector === undefined) {
-    return { ok: false, reason: `"${synthesizer}" is not a member of this Team; call list_agents for the current roster` }
-  }
-  if (collector.status === 'failed') {
-    return { ok: false, reason: `"${synthesizer}" failed at provisioning; spawn a replacement or name another collector` }
-  }
+  const refusal = collectorRefusal(members, synthesizer)
+  if (refusal !== undefined) return { ok: false, reason: refusal }
 
   const targets = broadcastTargets(requested, members)
   const ask = targets.send.filter(name => name !== synthesizer)

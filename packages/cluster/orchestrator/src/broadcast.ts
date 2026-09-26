@@ -35,6 +35,31 @@ const UNKNOWN = 'not a member of this Team; call list_agents for the current ros
 const FAILED = 'this member failed at provisioning; spawn a replacement or finish its work yourself'
 
 /**
+ * Why one member cannot collect a fan-out, or undefined when it can.
+ *
+ * A fan-out whose collector can never be woken spends every participant's turn
+ * and then stalls, so each protocol that collects something validates the
+ * collector before it creates anything.
+ * @param members - the roster as `listMembers` reports it, including the Lead.
+ * @param name - the collector name the caller supplied, already trimmed.
+ * @returns the refusal, or undefined when that member can collect.
+ */
+export function collectorRefusal(members: readonly TeamMemberView[], name: string): string | undefined {
+  const leadName = members.find(member => member.role === 'lead')?.name
+  if (name === leadName) {
+    return 'the Lead cannot collect this round, because no notice can wake the Lead; name a teammate'
+  }
+  const member = members.find(candidate => candidate.name === name)
+  if (member === undefined) {
+    return `"${name}" is not a member of this Team; call list_agents for the current roster`
+  }
+  if (member.status === 'failed') {
+    return `"${name}" failed at provisioning; spawn a replacement or name another collector`
+  }
+  return undefined
+}
+
+/**
  * Decide who one broadcast reaches.
  *
  * Omitting the request addresses the whole team: every teammate, minus the ones

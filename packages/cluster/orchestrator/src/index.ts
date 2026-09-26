@@ -19,6 +19,17 @@ import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 import { broadcastTargets } from './broadcast.ts'
 import { handoffMessage, ownershipHandoffs } from './handoff.ts'
 import {
+  ballotDescription,
+  ballotMessage,
+  ballotSubject,
+  isTallyTask,
+  motionPlan,
+  readTally,
+  tallyDescription,
+  tallySubject,
+  tallySummary,
+} from './motion.ts'
+import {
   answerDescription,
   answerSubject,
   questionMessage,
@@ -127,6 +138,50 @@ const ROUNDTABLE_VALUE_SCHEMA = {
       },
     },
     asked: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          target: { type: 'string', required: true },
+          taskId: { type: 'string', required: true },
+          messageId: { type: 'string', required: true },
+          status: { type: 'string', required: true, enum: ['accepted', 'queued'] },
+        },
+      },
+    },
+    skipped: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          target: { type: 'string', required: true },
+          reason: { type: 'string', required: true },
+        },
+      },
+    },
+  },
+} as const
+
+/** One motion result, matching what the tool promises the model. */
+const MOTION_VALUE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    tally: {
+      type: 'object',
+      required: true,
+      additionalProperties: false,
+      properties: {
+        taskId: { type: 'string', required: true },
+        subject: { type: 'string', required: true },
+        ownerName: { type: 'string', required: true },
+      },
+    },
+    ballots: {
       type: 'array',
       required: true,
       items: {
@@ -327,6 +382,79 @@ export function apply(ctx: Context, config: Config = {}): void {
     }))
   }
 
+  /**
+   * Register the motion tool, when this scope can register tools.
+   *
+   * One ballot row per voter is what lets the board close the poll: the tally
+   * task blocks on exactly those rows, so the ordinary release path both wakes
+   * the counter and carries the count.
+   * @param agent - the Agent whose scope owns the tool, always the Lead.
+   * @returns the disposer, or undefined when the composition mounts no tool runtime.
+   */
+  const registerMotion = (agent: Agent): (() => void) | undefined => {
+    const tools = toolRuntime(agent.ctx)
+    if (tools === undefined) return undefined
+    return tools.register(defineTool({
+      name: 'motion',
+      description: 'Put one motion to a vote: every voter owns a ballot task, and a tally task is assigned to a teammate the moment the last ballot is cast. Only the Team Lead may call this tool.',
+      parameters: {
+        motion: { type: 'string', required: true, description: 'The motion every voter decides on.' },
+        count: {
+          type: 'string',
+          required: true,
+          description: 'Teammate that counts the ballots once the last one is cast. Never the Lead, which no notice can wake.',
+        },
+        voters: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Teammate names to ask; omit to ask every current teammate.',
+        },
+      },
+      output: jsonOutput(MOTION_VALUE_SCHEMA),
+      async execute(args, exec) {
+        const caller = exec.agent
+        if (caller === undefined) throw new Error('motion requires a calling Agent')
+        const decision = motionPlan(args.voters, ctx.agentTeams.listMembers(caller), args.count)
+        if (!decision.ok) throw new Error(`motion refused: ${decision.reason}`)
+        const { plan } = decision
+        const ballots: Array<{ target: string; taskId: string; messageId: string; status: 'accepted' | 'queued' }> = []
+        for (const target of plan.ask) {
+          const ballot = await ctx.agentTeams.createTask(caller, {
+            subject: ballotSubject(args.motion),
+            description: ballotDescription(args.motion, plan.counter),
+          })
+          await ctx.agentTeams.updateTask(caller, {
+            taskId: ballot.id,
+            expectedRevision: ballot.revision,
+            action: 'reassign',
+            owner: target,
+          })
+          const sent = await ctx.agentTeams.sendMessage(caller, {
+            target,
+            content: [{ type: 'text', text: ballotMessage(String(ballot.id), args.motion) }],
+            signal: exec.signal,
+          })
+          ballots.push({
+            target,
+            taskId: String(ballot.id),
+            messageId: String(sent.messageId),
+            status: sent.status,
+          })
+        }
+        const tally = await ctx.agentTeams.createTask(caller, {
+          subject: tallySubject(args.motion),
+          description: tallyDescription(args.motion, plan.counter, ballots.map(entry => entry.taskId)),
+          blockedBy: ballots.map(entry => TeamTaskId(entry.taskId)),
+        })
+        return {
+          tally: { taskId: String(tally.id), subject: tally.subject, ownerName: plan.counter },
+          ballots,
+          skipped: plan.skipped.map(skip => ({ target: skip.target, reason: skip.reason })),
+        }
+      },
+    }))
+  }
+
   const registerBroadcast = (agent: Agent): (() => void) | undefined => {
     const tools = toolRuntime(agent.ctx)
     if (tools === undefined) return undefined
@@ -388,7 +516,13 @@ export function apply(ctx: Context, config: Config = {}): void {
         ctx.logger.warn('cluster-orchestrator: could not assign %s: %s', handoff.taskId, String(error))
         continue
       }
-      await tryDeliver(lead, handoff.ownerName, handoffMessage(handoff))
+      // A tally carries the count the board already agrees on, so its counter
+      // checks a number instead of counting free text.
+      const released = tasks.find(candidate => String(candidate.id) === handoff.taskId)
+      const tally = released !== undefined && isTallyTask(released)
+        ? tallySummary(readTally(released, tasks))
+        : undefined
+      await tryDeliver(lead, handoff.ownerName, handoffMessage(handoff, tally))
     }
   }
 
@@ -556,7 +690,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     } catch {
       return
     }
-    const registered = [registerBroadcast(agent), registerRoundtable(agent)]
+    const registered = [registerBroadcast(agent), registerRoundtable(agent), registerMotion(agent)]
       .filter((dispose): dispose is () => void => dispose !== undefined)
     if (registered.length === 0) return
     broadcasts.set(agent, () => {
