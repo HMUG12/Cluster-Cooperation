@@ -125,7 +125,7 @@ describe('@deepseek-ai/dsh-command-cluster registration', () => {
       definitionId: '@deepseek-ai/dsh-command-cluster',
       name: 'cluster',
       description: 'Show the cluster roster, the shared task board, and its dependency edges',
-      input: { hint: '[status|tasks|agents|graph]' },
+      input: { hint: '[status|tasks|agents|graph|cost]' },
     })
     expect(test.ctx.commands.find(test.agent, 'cluster')).toBeDefined()
 
@@ -158,9 +158,26 @@ describe('/cluster human command', () => {
 
   it('refuses a sub-command it does not own instead of treating it as free text', async () => {
     const test = await harness()
-    const result = await run(test, ' cost')
+    const result = await run(test, ' budget')
     expect(result.kind).toBe('error')
-    expect(result.text).toContain('Usage: /cluster [status|tasks|agents|graph]')
+    expect(result.text).toContain('Usage: /cluster [status|tasks|agents|graph|cost]')
+  })
+
+  it('reports the spend the orchestrator publishes, without importing it', async () => {
+    const test = await harness()
+    test.ctx.provide('clusterSpend', {
+      members: () => [{ name: 'coder', calls: 2, billable: 300, budget: 250, overBudget: true }],
+    })
+    const result = await run(test, ' cost')
+    expect(result.kind).toBe('success')
+    expect(result.text).toBe('coder: 300 billable tokens of 250 budgeted across 2 calls, over budget')
+  })
+
+  it('says so when no orchestrator is mounted to fold the spend', async () => {
+    const test = await harness()
+    const result = await run(test, ' cost')
+    expect(result.kind).toBe('success')
+    expect(result.text).toContain('No cluster orchestrator is mounted')
   })
 
   it('hands a refusal back as an error result rather than failing dispatch', async () => {

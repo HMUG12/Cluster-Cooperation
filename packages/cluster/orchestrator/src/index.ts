@@ -51,7 +51,16 @@ import {
 } from './roundtable.ts'
 import { readyMessage, readyNotices, releaseDecision } from './ready.ts'
 import { retryMessage, retryNotice, reviewMessage, reviewRequest, type ReviewRequest } from './review.ts'
-import { addUsage, budgetNotice, emptySpend, overBudget, type MemberSpend, type SpendRoute } from './spend.ts'
+import {
+  addUsage,
+  budgetNotice,
+  emptySpend,
+  overBudget,
+  spendReport,
+  type MemberSpend,
+  type MemberSpendReport,
+  type SpendRoute,
+} from './spend.ts'
 
 /** Cordis plugin name. */
 export const name = 'cluster-orchestrator'
@@ -325,6 +334,30 @@ export function apply(ctx: Context, config: Config = {}): void {
   const lastFoldedSeq = new Map<string, number>()
   const resolvedBudget = new Map<string, { readonly name: string; readonly limit: number } | null>()
   const notified = new Set<string>()
+
+  // The command plane cannot fold usage itself — only this plugin subscribes to
+  // every session's event stream — so the fold is published as a read-only view
+  // rather than recomputed by whoever wants to print it. A member the roster no
+  // longer names keeps its record under its session id instead of disappearing.
+  ctx.provide('clusterSpend', {
+    members: (): readonly MemberSpendReport[] => {
+      const cluster = policy()
+      return spendReport([...spend.entries()].map(([sessionId, record]) => {
+        const lead = resolveLead(sessionId)
+        const member = lead === undefined
+          ? undefined
+          : ctx.agentTeams.listMembers(lead).find(candidate => String(candidate.id) === sessionId)
+        const declared = lead === undefined || cluster === undefined
+          ? undefined
+          : resolveBudget(lead, sessionId, cluster)
+        return {
+          name: member?.name ?? (lead !== undefined && String(lead.id) === sessionId ? 'lead' : sessionId),
+          spend: record,
+          ...declared === undefined ? {} : { budget: declared.limit },
+        }
+      }))
+    },
+  })
 
   const policy = (): ClusterPolicySource | undefined =>
     (ctx as unknown as { get(key: string): unknown }).get('clusterConfig') as ClusterPolicySource | undefined

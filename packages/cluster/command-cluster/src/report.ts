@@ -12,10 +12,28 @@
 import type { TeamMemberView, TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 
 /** Usage line shared by every refusal. */
-export const USAGE = 'Usage: /cluster [status|tasks|agents|graph]'
+export const USAGE = 'Usage: /cluster [status|tasks|agents|graph|cost]'
 
 /** Sub-commands `/cluster` owns. */
-export type ClusterSubcommand = 'status' | 'tasks' | 'agents' | 'graph'
+export type ClusterSubcommand = 'status' | 'tasks' | 'agents' | 'graph' | 'cost'
+
+/** One member's spend, as the orchestrator publishes it. */
+export interface ClusterCostRow {
+  /** Roster name the spend belongs to. */
+  readonly name: string
+  /** Completed model calls counted so far. */
+  readonly calls: number
+  /** Billable tokens the member has spent. */
+  readonly billable: number
+  /** Provider that served the calls, when the events named one. */
+  readonly provider?: string
+  /** Model that served the calls, when the events named one. */
+  readonly model?: string
+  /** Token budget `cluster.yml` declares, when it declares one. */
+  readonly budget?: number
+  /** Whether the member is past its budget. */
+  readonly overBudget?: boolean
+}
 
 /** One parsed invocation. */
 export type ClusterCommand =
@@ -36,7 +54,7 @@ const TASK_STATUSES: readonly TeamTaskView['status'][] = ['in_progress', 'pendin
 export function parseClusterCommand(rawInput: string): ClusterCommand {
   const input = rawInput.trim().toLowerCase()
   if (input.length === 0) return { kind: 'run', subcommand: 'status' }
-  if (input === 'status' || input === 'tasks' || input === 'agents' || input === 'graph') {
+  if (input === 'status' || input === 'tasks' || input === 'agents' || input === 'graph' || input === 'cost') {
     return { kind: 'run', subcommand: input }
   }
   return { kind: 'refused', reason: `"/cluster ${rawInput.trim()}" is not a cluster sub-command.\n${USAGE}` }
@@ -133,5 +151,23 @@ export function clusterGraph(tasks: readonly TeamTaskView[]): string {
   if (edges.length === 0) return 'No shared task waits on another.'
   return edges
     .map(task => `${String(task.id)} ${task.subject} ← ${task.blockedBy.map(String).join(', ')}`)
+    .join('\n')
+}
+
+/**
+ * One line per member that has spent a model call.
+ * @param rows - the rows the orchestrator published.
+ * @returns the spend report.
+ */
+export function clusterCost(rows: readonly ClusterCostRow[]): string {
+  if (rows.length === 0) return 'No member has spent a model call yet.'
+  return rows
+    .map((row) => {
+      const route = [row.provider, row.model].filter(part => part !== undefined && part !== '').join('/')
+      const budget = row.budget === undefined ? '' : ` of ${row.budget} budgeted`
+      const over = row.overBudget === true ? ', over budget' : ''
+      const served = route === '' ? '' : ` on ${route}`
+      return `${row.name}: ${row.billable} billable tokens${budget} across ${row.calls} calls${served}${over}`
+    })
     .join('\n')
 }

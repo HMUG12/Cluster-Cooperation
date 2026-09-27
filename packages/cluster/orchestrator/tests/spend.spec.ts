@@ -7,7 +7,48 @@ import {
   budgetNotice,
   emptySpend,
   overBudget,
+  spendReport,
 } from '../src/spend.ts'
+
+describe('spendReport', () => {
+  it('names the route, the billable total, and the budget it is measured against', () => {
+    const spend = addUsage(emptySpend('session-1'), {
+      inputTokens: 100,
+      outputTokens: 40,
+      cacheReadTokens: 900,
+      cacheWriteTokens: 10,
+    }, { provider: 'mock-b', model: 'coder-model' })
+    expect(spendReport([{ name: 'coder', spend, budget: 2000 }])).toEqual([
+      {
+        name: 'coder',
+        calls: 1,
+        billable: 1050,
+        provider: 'mock-b',
+        model: 'coder-model',
+        budget: 2000,
+        overBudget: false,
+      },
+    ])
+  })
+
+  it('leaves the over-budget flag false when cluster.yml declares no budget', () => {
+    const spend = addUsage(emptySpend('session-2'), { inputTokens: 10_000, outputTokens: 0 })
+    expect(spendReport([{ name: 'tester', spend }])).toEqual([
+      { name: 'tester', calls: 1, billable: 10_000, overBudget: false },
+    ])
+  })
+
+  it('orders rows by spend and breaks ties by name, so two reads print the same lines', () => {
+    const heavy = addUsage(emptySpend('session-heavy'), { inputTokens: 500, outputTokens: 0 })
+    const light = addUsage(emptySpend('session-light'), { inputTokens: 5, outputTokens: 0 })
+    const rows = spendReport([
+      { name: 'zoe', spend: light },
+      { name: 'adam', spend: light },
+      { name: 'coder', spend: heavy },
+    ])
+    expect(rows.map(row => row.name)).toEqual(['coder', 'adam', 'zoe'])
+  })
+})
 
 describe('addUsage', () => {
   it('sums every disjoint field and counts the call', () => {

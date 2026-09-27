@@ -25,7 +25,7 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount it wherever a command adapter and the Agent Team are both present. Every sub-command runs against the Team the invoking agent belongs to, so the Lead and a teammate read the same board.
+Mount it wherever a command adapter and the Agent Team are both present. Every sub-command runs against the Team the invoking agent belongs to, so the Lead and a teammate read the same board. `/cluster cost` additionally needs the cluster orchestrator, which is the only plugin that folds every session's usage; without it the report says so rather than printing a zero.
 
 ### Command reference
 
@@ -36,10 +36,11 @@ Mount it wherever a command adapter and the Agent Team are both present. Every s
 | `/cluster tasks` | One line per shared task: id, status, subject, owner, and its readiness with every blocker |
 | `/cluster agents` | One line per member, Lead first: name, runtime status, role, model, and any diagnostics |
 | `/cluster graph` | One edge per line: the task that waits, and the blockers it waits on |
+| `/cluster cost` | One line per member that has spent: billable tokens, the budget it is measured against, model calls, and the route that served them |
 
 ### Output grammar
 
-A sub-command outside the four above is refused with the usage line instead of being treated as free text. Every renderer keeps a fixed status order, so two runs over the same board print the same lines.
+A sub-command outside the five above is refused with the usage line instead of being treated as free text. Every renderer keeps a fixed order — status buckets and spend rows alike — so two runs over the same board print the same lines.
 
 ### Compose it
 
@@ -94,7 +95,7 @@ Nothing is appended to any request, so no cached prefix can be invalidated.
 <a id="known-limitations-and-deferred-work"></a>
 
 - **Read-only by construction** — the command never claims, reassigns, or completes anything, so it cannot rescue a stalled run; the Lead's tools remain the only writers.
-- **No cost report yet** — the per-member spend the orchestrator folds from durable usage is not exposed as a service, so `/cluster cost` waits for that surface.
+- **Spend covers the members that have spent** — a teammate that has made no model call has no row, so `/cluster cost` lists what the orchestrator's fold already knows rather than the whole roster.
 - **Outside the shipped bundle** — an interactive deployment mounts this command itself, because a boot without a command adapter would leave it pending.
 
 <a id="dev-note"></a>

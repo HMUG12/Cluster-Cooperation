@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { TeamMemberView, TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
 import {
   clusterAgents,
+  clusterCost,
   clusterGraph,
   clusterStatus,
   clusterTasks,
@@ -54,17 +55,17 @@ describe('parseClusterCommand', () => {
   })
 
   it('reads one sub-command, case-insensitively', () => {
-    for (const subcommand of ['status', 'tasks', 'agents', 'graph'] as const) {
+    for (const subcommand of ['status', 'tasks', 'agents', 'graph', 'cost'] as const) {
       expect(parseClusterCommand(` ${subcommand.toUpperCase()} `)).toEqual({ kind: 'run', subcommand })
     }
   })
 
   it('refuses anything else with the usage line instead of guessing', () => {
-    const refused = parseClusterCommand('cost')
+    const refused = parseClusterCommand('budget')
     expect(refused.kind).toBe('refused')
     if (refused.kind !== 'refused') return
-    expect(refused.reason).toContain('/cluster cost')
-    expect(refused.reason).toContain('Usage: /cluster [status|tasks|agents|graph]')
+    expect(refused.reason).toContain('/cluster budget')
+    expect(refused.reason).toContain('Usage: /cluster [status|tasks|agents|graph|cost]')
   })
 })
 
@@ -122,6 +123,23 @@ describe('clusterAgents', () => {
       'coder [idle] teammate, coder-model',
       'broken [failed] teammate — provisioning failed',
     ])
+  })
+})
+
+describe('clusterCost', () => {
+  it('names the route, the budget, and whether the member is past it', () => {
+    const report = clusterCost([
+      { name: 'coder', calls: 3, billable: 1050, provider: 'mock-b', model: 'coder-model', budget: 1000, overBudget: true },
+      { name: 'tester', calls: 1, billable: 12 },
+    ])
+    expect(report.split('\n')).toEqual([
+      'coder: 1050 billable tokens of 1000 budgeted across 3 calls on mock-b/coder-model, over budget',
+      'tester: 12 billable tokens across 1 calls',
+    ])
+  })
+
+  it('says nothing has been spent instead of printing nothing', () => {
+    expect(clusterCost([])).toBe('No member has spent a model call yet.')
   })
 })
 

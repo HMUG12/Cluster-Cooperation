@@ -137,3 +137,47 @@ export function budgetNotice(memberName: string, spend: MemberSpend, budget: num
     'with send_message target "lead" exactly what is done and what is left.',
   ].join(' ')
 }
+
+/** One member's spend, as a report reads it. */
+export interface MemberSpendReport {
+  /** Roster name the session belongs to, or its session id when the roster names no member. */
+  readonly name: string
+  /** Completed model calls counted so far. */
+  readonly calls: number
+  /** Billable tokens the member has spent. */
+  readonly billable: number
+  /** Provider that served the calls, when the events named one. */
+  readonly provider?: string
+  /** Model that served the calls, when the events named one. */
+  readonly model?: string
+  /** Token budget `cluster.yml` declares, when it declares one. */
+  readonly budget?: number
+  /** Whether the member is past its budget. */
+  readonly overBudget: boolean
+}
+
+/**
+ * Turn folded records into the rows a report prints.
+ *
+ * Sorted by spend and then by name, so two reads of the same fold print the same
+ * lines — which is what a human comparing two reports needs, and what a test can
+ * assert without depending on fold order.
+ * @param rows - each session's record with the name and declared budget that go with it.
+ * @returns one row per record, heaviest billable total first.
+ */
+export function spendReport(
+  rows: readonly { readonly name: string; readonly spend: MemberSpend; readonly budget?: number }[],
+): MemberSpendReport[] {
+  return rows
+    .map(({ name, spend, budget }) => ({
+      name,
+      calls: spend.calls,
+      billable: billableTokens(spend),
+      ...spend.provider === undefined ? {} : { provider: spend.provider },
+      ...spend.model === undefined ? {} : { model: spend.model },
+      ...budget === undefined ? {} : { budget },
+      // Without a declared budget there is nothing to be over, so the flag stays false.
+      overBudget: budget === undefined ? false : overBudget(spend, budget),
+    }))
+    .sort((left, right) => right.billable - left.billable || left.name.localeCompare(right.name))
+}
