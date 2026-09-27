@@ -14959,7 +14959,7 @@
         "event:team/message/delivered.data"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:227"
+        "packages/experimental/agent-team/src/types.ts:250"
       ]
     },
     {
@@ -15322,7 +15322,7 @@
         "event:team/message/queued.data"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:225"
+        "packages/experimental/agent-team/src/types.ts:248"
       ]
     },
     {
@@ -20017,7 +20017,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamMessageSource"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:115"
+        "packages/experimental/agent-team/src/types.ts:133"
       ]
     },
     {
@@ -32117,9 +32117,9 @@
         "packages/attachment/attachment/src/brand.ts:6",
         "packages/compaction/compaction/src/brand.ts:4",
         "packages/core/session/src/types.ts:19",
-        "packages/experimental/agent-team/src/types.ts:20",
-        "packages/experimental/agent-team/src/types.ts:32",
-        "packages/experimental/agent-team/src/types.ts:8",
+        "packages/experimental/agent-team/src/types.ts:26",
+        "packages/experimental/agent-team/src/types.ts:38",
+        "packages/experimental/agent-team/src/types.ts:50",
         "packages/feedback/message-feedback/src/types.ts:14",
         "packages/goal/goal/src/types.ts:17",
         "packages/interaction/commands/src/brand.ts:31",
@@ -33829,7 +33829,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamTaskSnapshot"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:74"
+        "packages/experimental/agent-team/src/types.ts:92"
       ]
     },
     {
@@ -34910,7 +34910,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamMessageSnapshot"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:106"
+        "packages/experimental/agent-team/src/types.ts:124"
       ]
     },
     {
@@ -37065,7 +37065,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamMemberSnapshot"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:47"
+        "packages/experimental/agent-team/src/types.ts:65"
       ]
     },
     {
@@ -46905,7 +46905,7 @@
         "event:team/task.data"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:223"
+        "packages/experimental/agent-team/src/types.ts:246"
       ]
     },
     {
@@ -49670,7 +49670,7 @@
         "event:team/member.data"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:221"
+        "packages/experimental/agent-team/src/types.ts:244"
       ]
     },
     {
@@ -49813,7 +49813,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamTaskStatus"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:71"
+        "packages/experimental/agent-team/src/types.ts:89"
       ]
     },
     {
@@ -56919,7 +56919,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamMemberPhase"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:44"
+        "packages/experimental/agent-team/src/types.ts:62"
       ]
     },
     {

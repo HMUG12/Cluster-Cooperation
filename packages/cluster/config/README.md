@@ -104,8 +104,8 @@ Loading is lazy so a broken document fails at the first consumer with the file p
 <a id="further-exploration"></a>
 ## Further Exploration
 
-- [`cluster-router`](../router/README.md) — the consumer that binds the Lead to these routes.
-- [`cluster-orchestrator`](../orchestrator/README.md) — the consumer that reads the review policy.
+- [`cluster-router`](../../experimental/cluster-router/README.md) — the consumer that binds the Lead to these routes.
+- [`cluster-orchestrator`](../../experimental/cluster-orchestrator/README.md) — the consumer that reads the review policy.
 - [`llm-pi-ai`](../../llm/llm-pi-ai/README.md) — declares OpenAI-compatible and Anthropic-compatible provider routes.
 
 -----
@@ -131,6 +131,7 @@ Independent for routes: the package writes no request content. A briefing is app
 
 <a id="known-limitations-and-deferred-work"></a>
 
+- No runtime invariant companion is published because the document is validated as it is read, and every test that parses one exercises that same read.
 - **No sampling parameters** — `AgentOptions` carries only `provider`, `model`, `reasoningEffort`, and `maxTokens`, so `temperature` and similar fields cannot be bound per member and must be set on the adapter route instead.
 - **No hot reload** — a document edit is picked up only by restarting the profile; there is no file watcher or config-only HMR trigger.
 - **No fallback execution** — `fallbacksFor()` reports declared fallbacks but nothing consumes them yet; routing a failed request to the next route is deferred to the telemetry layer.

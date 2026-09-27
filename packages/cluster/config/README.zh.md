@@ -104,8 +104,8 @@ clusters:
 <a id="further-exploration"></a>
 ## 进一步探索
 
-- [`cluster-router`](../router/README.zh.md) — 把这些路由绑定到 Lead 的消费者。
-- [`cluster-orchestrator`](../orchestrator/README.zh.md) — 读取评审策略的消费者。
+- [`cluster-router`](../../experimental/cluster-router/README.zh.md) — 把这些路由绑定到 Lead 的消费者。
+- [`cluster-orchestrator`](../../experimental/cluster-orchestrator/README.zh.md) — 读取评审策略的消费者。
 - [`llm-pi-ai`](../../llm/llm-pi-ai/README.zh.md) — 声明 OpenAI 兼容与 Anthropic 兼容的 provider 路由。
 
 -----
@@ -131,6 +131,7 @@ clusters:
 
 <a id="known-limitations-and-deferred-work"></a>
 
+- 未发布运行时不变式伴随包：文档在读取时即被校验，而每一个解析它的测试走的都是同一条读取路径。
 - **没有采样参数** — `AgentOptions` 只带 `provider`、`model`、`reasoningEffort` 与 `maxTokens`，因此 `temperature` 之类的字段无法按成员绑定，只能设置在适配器路由上。
 - **不支持热重载** — 改动文档只能靠重启 profile 生效；没有文件监听，也没有仅配置的 HMR 触发器。
 - **不执行降级** — `fallbacksFor()` 会报告已声明的降级路由，但目前没有消费者；把失败请求改道到下一个路由的工作延后到遥测层。

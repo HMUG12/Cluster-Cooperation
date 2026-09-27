@@ -201,9 +201,6 @@ importers:
       '@deepseek-ai/dsh-cmdline':
         specifier: workspace:^
         version: link:../../packages/boot/cmdline
-      '@deepseek-ai/dsh-command-cluster':
-        specifier: workspace:^
-        version: link:../../packages/cluster/command-cluster
       '@deepseek-ai/dsh-command-compact':
         specifier: workspace:^
         version: link:../../packages/compaction/command-compact
@@ -225,6 +222,9 @@ importers:
       '@deepseek-ai/dsh-experimental-agent-team-web-profile':
         specifier: workspace:^
         version: link:../../packages/experimental/agent-team-web-profile
+      '@deepseek-ai/dsh-experimental-cluster-bundle':
+        specifier: workspace:^
+        version: link:../../packages/experimental/cluster-bundle
       '@deepseek-ai/dsh-fs-local':
         specifier: workspace:^
         version: link:../../packages/fs/fs-local
@@ -427,6 +427,9 @@ importers:
       '@deepseek-ai/dsh-experimental-agent-team':
         specifier: workspace:^
         version: link:../../packages/experimental/agent-team
+      '@deepseek-ai/dsh-experimental-cluster-command':
+        specifier: workspace:^
+        version: link:../../packages/experimental/cluster-command
       '@deepseek-ai/dsh-experimental-ptc-runtime-python':
         specifier: workspace:^
         version: link:../../packages/experimental/ptc-runtime-python
@@ -5268,52 +5271,6 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/cluster/bundle:
-    dependencies:
-      '@deepseek-ai/dsh-cluster-config':
-        specifier: workspace:^
-        version: link:../config
-      '@deepseek-ai/dsh-cluster-orchestrator':
-        specifier: workspace:^
-        version: link:../orchestrator
-      '@deepseek-ai/dsh-cluster-router':
-        specifier: workspace:^
-        version: link:../router
-      '@deepseek-ai/dsh-experimental-agent-team':
-        specifier: workspace:^
-        version: link:../../experimental/agent-team
-      '@deepseek-ai/dsh-experimental-tool-agent-team':
-        specifier: workspace:^
-        version: link:../../experimental/tool-agent-team
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:^
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/cordis-plugin-include':
-        specifier: workspace:^
-        version: link:../../../vendor/include
-      js-yaml:
-        specifier: ^4.2.0
-        version: 4.3.1
-
-  packages/cluster/command-cluster:
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:^
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:^
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-commands':
-        specifier: workspace:^
-        version: link:../../interaction/commands
-      '@deepseek-ai/dsh-experimental-agent-team':
-        specifier: workspace:^
-        version: link:../../experimental/agent-team
-      '@deepseek-ai/dsh-session':
-        specifier: workspace:^
-        version: link:../../core/session
-
   packages/cluster/config:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -5332,47 +5289,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:^
         version: link:../../llm/llm
-
-  packages/cluster/orchestrator:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:^
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:^
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-experimental-agent-team':
-        specifier: workspace:^
-        version: link:../../experimental/agent-team
-      '@deepseek-ai/dsh-session':
-        specifier: workspace:^
-        version: link:../../core/session
-      '@deepseek-ai/dsh-tools':
-        specifier: workspace:^
-        version: link:../../core/tools
-
-  packages/cluster/router:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:^
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:^
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-cluster-config':
-        specifier: workspace:^
-        version: link:../config
-      '@deepseek-ai/dsh-experimental-agent-team':
-        specifier: workspace:^
-        version: link:../../experimental/agent-team
 
   packages/compaction/command-compact:
     devDependencies:
@@ -6708,6 +6624,93 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
+
+  packages/experimental/cluster-bundle:
+    dependencies:
+      '@deepseek-ai/dsh-cluster-config':
+        specifier: workspace:^
+        version: link:../../cluster/config
+      '@deepseek-ai/dsh-experimental-agent-team':
+        specifier: workspace:^
+        version: link:../agent-team
+      '@deepseek-ai/dsh-experimental-cluster-orchestrator':
+        specifier: workspace:^
+        version: link:../cluster-orchestrator
+      '@deepseek-ai/dsh-experimental-cluster-router':
+        specifier: workspace:^
+        version: link:../cluster-router
+      '@deepseek-ai/dsh-experimental-tool-agent-team':
+        specifier: workspace:^
+        version: link:../tool-agent-team
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/cordis-plugin-include':
+        specifier: workspace:^
+        version: link:../../../vendor/include
+      js-yaml:
+        specifier: ^4.2.0
+        version: 4.3.1
+
+  packages/experimental/cluster-command:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-commands':
+        specifier: workspace:^
+        version: link:../../interaction/commands
+      '@deepseek-ai/dsh-experimental-agent-team':
+        specifier: workspace:^
+        version: link:../agent-team
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+
+  packages/experimental/cluster-orchestrator:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-experimental-agent-team':
+        specifier: workspace:^
+        version: link:../agent-team
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:^
+        version: link:../../core/tools
+
+  packages/experimental/cluster-router:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-cluster-config':
+        specifier: workspace:^
+        version: link:../../cluster/config
+      '@deepseek-ai/dsh-experimental-agent-team':
+        specifier: workspace:^
+        version: link:../agent-team
 
   packages/experimental/computer-use-cua-driver-mcp:
     dependencies:

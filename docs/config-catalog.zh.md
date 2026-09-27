@@ -487,43 +487,7 @@ export interface Config {
 
 来源：[`packages/cluster/config/src/index.ts:30`](../packages/cluster/config/src/index.ts)
 
-<a id="deepseek-aidsh-cluster-orchestrator"></a>
-
-## `@deepseek-ai/dsh-cluster-orchestrator`
-
-需要：`agents` · `agentTeams`
-
-```ts config-catalog
-/** Orchestration configuration. */
-export interface Config {
-  /** Whether a completed blocker wakes the released task's owner. */
-  readonly dependencyAutoUnlock?: boolean
-  /** Whether a completed task opens the review its cluster declares. */
-  readonly reviewLoop?: boolean
-  /** Whether a member past its declared token budget is told to wind down. */
-  readonly budgetWatch?: boolean
-}
-```
-
-来源：[`packages/cluster/orchestrator/src/index.ts:51`](../packages/cluster/orchestrator/src/index.ts)
-
-<a id="deepseek-aidsh-cluster-router"></a>
-
-## `@deepseek-ai/dsh-cluster-router`
-
-需要：`agents` · `agentTeams` · `clusterConfig`
-
-```ts config-catalog
-/** Cluster routing configuration. */
-export interface Config {
-  /** Cluster whose routes apply. Defaults to the document's `defaultCluster`. */
-  readonly cluster?: string
-}
-```
-
-来源：[`packages/cluster/router/src/index.ts:24`](../packages/cluster/router/src/index.ts)
-
-<a id="deepseek-aidsh-compaction-basic"></a>
+<a id="deepseek-aidsh-experimental-cluster-orchestrator"></a>
 
 ## `@deepseek-ai/dsh-compaction-basic`
 
@@ -722,6 +686,42 @@ Depends on: `ModelConfig` (`@browserbasehq/stagehand`)
 来源：[`packages/experimental/browser-use-stagehand-native/src/index.ts:28`](../packages/experimental/browser-use-stagehand-native/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-computer-use-cua-driver-mcp"></a>
+
+## `@deepseek-ai/dsh-experimental-cluster-orchestrator`
+
+需要：`agents` · `agentTeams`
+
+```ts config-catalog
+/** Orchestration configuration. */
+export interface Config {
+  /** Whether a completed blocker wakes the released task's owner. */
+  readonly dependencyAutoUnlock?: boolean
+  /** Whether a completed task opens the review its cluster declares. */
+  readonly reviewLoop?: boolean
+  /** Whether a member past its declared token budget is told to wind down. */
+  readonly budgetWatch?: boolean
+}
+```
+
+来源：[`packages/experimental/cluster-orchestrator/src/index.ts:51`](../packages/experimental/cluster-orchestrator/src/index.ts)
+
+<a id="deepseek-aidsh-experimental-cluster-router"></a>
+
+## `@deepseek-ai/dsh-experimental-cluster-router`
+
+需要：`agents` · `agentTeams` · `clusterConfig`
+
+```ts config-catalog
+/** Cluster routing configuration. */
+export interface Config {
+  /** Cluster whose routes apply. Defaults to the document's `defaultCluster`. */
+  readonly cluster?: string
+}
+```
+
+来源：[`packages/experimental/cluster-router/src/index.ts:24`](../packages/experimental/cluster-router/src/index.ts)
+
+<a id="deepseek-aidsh-compaction-basic"></a>
 
 ## `@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp`
 
@@ -3878,7 +3878,6 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-user-questions`（[`packages/client/ui-user-questions/src/index.ts`](../packages/client/ui-user-questions/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-workflow-run`（[`packages/client/ui-workflow-run/src/index.ts`](../packages/client/ui-workflow-run/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-workspace`（[`packages/client/ui-workspace/src/index.ts`](../packages/client/ui-workspace/src/index.ts)）
-- `@deepseek-ai/dsh-command-cluster` — 需要 `commands` · `agentTeams`（[`packages/cluster/command-cluster/src/index.ts`](../packages/cluster/command-cluster/src/index.ts)）
 - `@deepseek-ai/dsh-command-compact` — 需要 `commands` · `compact`（[`packages/compaction/command-compact/src/index.ts`](../packages/compaction/command-compact/src/index.ts)）
 - `@deepseek-ai/dsh-command-feedback` — 需要 `commands`（[`packages/feedback/command-feedback/src/index.ts`](../packages/feedback/command-feedback/src/index.ts)）
 - `@deepseek-ai/dsh-command-goal` — 需要 `commands` · `goals`（[`packages/goal/command-goal/src/index.ts`](../packages/goal/command-goal/src/index.ts)）
@@ -3889,6 +3888,7 @@ export interface Config {
 - `@deepseek-ai/dsh-deepseek-llm-api-extensions`（[`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../packages/llm/deepseek-llm-api-extensions/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-auto-review` — 需要 `llm` · `permissionPresets` · `sessions` · `tools`（[`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-client-ui-agent-team`（[`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts)）
+- `@deepseek-ai/dsh-experimental-cluster-command` — 需要 `commands` · `agentTeams`（[`packages/experimental/cluster-command/src/index.ts`](../packages/experimental/cluster-command/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native` — requires `computerUse` · `tools` · `systemPrompt` ([`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts))
 - `@deepseek-ai/dsh-fs-observation-policy`（[`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts)）
 - `@deepseek-ai/dsh-fs-ssh` — 需要 `ssh` · `sandboxPolicy`（[`packages/ssh/fs-ssh/src/index.ts`](../packages/ssh/fs-ssh/src/index.ts)）
@@ -3956,12 +3956,12 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-primitives`（[`packages/client/ui-primitives/src/index.ts`](../packages/client/ui-primitives/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-slots`（[`packages/client/ui-slots/src/index.ts`](../packages/client/ui-slots/src/index.ts)）
 - `@deepseek-ai/dsh-client-web`（[`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts)）
-- `@deepseek-ai/dsh-cluster-bundle`（[`packages/cluster/bundle/src/index.ts`](../packages/cluster/bundle/src/index.ts)）
 - `@deepseek-ai/dsh-cmdline`（[`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts)）
 - `@deepseek-ai/dsh-deque`（[`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-agent-team-profile`（[`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-agent-team-web-profile`（[`packages/experimental/agent-team-web-profile/src/index.ts`](../packages/experimental/agent-team-web-profile/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-browser-use-runtime` ([`packages/experimental/browser-use-runtime/src/index.ts`](../packages/experimental/browser-use-runtime/src/index.ts))
+- `@deepseek-ai/dsh-experimental-cluster-bundle`（[`packages/experimental/cluster-bundle/src/index.ts`](../packages/experimental/cluster-bundle/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-webworker-packer`（[`packages/experimental/webworker-packer/src/index.ts`](../packages/experimental/webworker-packer/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-webworker-runtime`（[`packages/experimental/webworker-runtime/src/index.ts`](../packages/experimental/webworker-runtime/src/index.ts)）
 - `@deepseek-ai/dsh-home-paths`（[`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts)）

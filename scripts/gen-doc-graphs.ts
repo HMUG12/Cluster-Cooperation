@@ -770,7 +770,9 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'cluster-config',
     title: 'Cluster declaration service',
     mode: 'core',
-    consumers: ['cluster-router', 'cluster-orchestrator'],
+    // Package short names are `<group>-<directory>`, so the Agent-Team-facing
+    // consumers changed name together with their group when they moved.
+    consumers: ['experimental-cluster-router', 'experimental-cluster-orchestrator'],
     note: 'Answers one cluster.yml declaration: per-member routes and ordered fallbacks, the accountability a spawned teammate starts with, the review policy, and the soft token budget a member declared. The router binds each teammate to its route as the Agent is created and the orchestrator applies the board policy, so the declaration is only ever read.',
   },
 ]

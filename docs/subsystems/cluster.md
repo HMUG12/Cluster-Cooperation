@@ -16,7 +16,7 @@ The reader is strict on purpose. An unknown key, an unknown alias, a wrong type,
 
 ## How the parts wire together
 
-[`cluster-config`](../../packages/cluster/config/README.md) owns the document and the service. [`cluster-router`](../../packages/cluster/router/README.md) binds each teammate to its declared route as its Agent is created, which is the one seam that makes per-role models work at all: Agent Teams threads no model through `spawn_teammate`. [`cluster-orchestrator`](../../packages/cluster/orchestrator/README.md) reads the same declaration to move the shared task board, waking released owners, gating downstream work on the review verdict, counting rejections against the retry budget, and watching member spend. [`cluster-bundle`](../../packages/cluster/bundle/README.md) is the profile layer that mounts the whole set.
+[`cluster-config`](../../packages/cluster/config/README.md) owns the document and the service. [`cluster-router`](../../packages/experimental/cluster-router/README.md) binds each teammate to its declared route as its Agent is created, which is the one seam that makes per-role models work at all: Agent Teams threads no model through `spawn_teammate`. [`cluster-orchestrator`](../../packages/experimental/cluster-orchestrator/README.md) reads the same declaration to move the shared task board, waking released owners, gating downstream work on the review verdict, counting rejections against the retry budget, and watching member spend. [`cluster-bundle`](../../packages/experimental/cluster-bundle/README.md) is the profile layer that mounts the whole set.
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

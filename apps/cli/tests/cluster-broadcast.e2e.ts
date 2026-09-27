@@ -12,7 +12,7 @@ const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 // The cluster bundle is not a dependency of this app, so a profile cannot name
 // it: layering its own patch keeps the bundle the single source of truth for
 // what the cluster mounts, and resolves its plugins from the bundle's packages.
-const clusterBundlePatch = fileURLToPath(new URL('../../../packages/cluster/bundle/cordis.patch.yml', import.meta.url))
+const clusterBundlePatch = fileURLToPath(new URL('../../../packages/experimental/cluster-bundle/cordis.patch.yml', import.meta.url))
 const fixturePlugin = pathToFileURL(fileURLToPath(
   new URL('./profiles/headless/tests/fixtures/cluster-broadcast-llm.mjs', import.meta.url),
 )).href

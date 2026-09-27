@@ -16,7 +16,7 @@ Cluster Cooperation 这一组包为一队 agent 提供声明的路由、声明�
 
 ## 各部分如何接线
 
-[`cluster-config`](../../packages/cluster/config/README.zh.md) 拥有文档与服务。[`cluster-router`](../../packages/cluster/router/README.zh.md) 在 teammate 的 Agent 被创建时把它绑定到声明的路由上——这是让"按角色选模型"真正成立的唯一接缝：Agent Teams 不会透过 `spawn_teammate` 传递任何模型。[`cluster-orchestrator`](../../packages/cluster/orchestrator/README.zh.md) 读同一份声明来推动共享任务板：唤醒被解锁的 owner、把下游卡在评审裁决上、按重试预算计数驳回、盯住成员花费。[`cluster-bundle`](../../packages/cluster/bundle/README.zh.md) 是挂载整套的 profile 层。
+[`cluster-config`](../../packages/cluster/config/README.zh.md) 拥有文档与服务。[`cluster-router`](../../packages/experimental/cluster-router/README.zh.md) 在 teammate 的 Agent 被创建时把它绑定到声明的路由上——这是让"按角色选模型"真正成立的唯一接缝：Agent Teams 不会透过 `spawn_teammate` 传递任何模型。[`cluster-orchestrator`](../../packages/experimental/cluster-orchestrator/README.zh.md) 读同一份声明来推动共享任务板：唤醒被解锁的 owner、把下游卡在评审裁决上、按重试预算计数驳回、盯住成员花费。[`cluster-bundle`](../../packages/experimental/cluster-bundle/README.zh.md) 是挂载整套的 profile 层。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

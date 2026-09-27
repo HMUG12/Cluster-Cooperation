@@ -407,9 +407,9 @@
     { "path": "./apps/desktop-host" },
     { "path": "./apps/desktop" },
     { "path": "./packages/cluster/config" },
-    { "path": "./packages/cluster/router" },
-    { "path": "./packages/cluster/orchestrator" },
-    { "path": "./packages/cluster/bundle" },
-    { "path": "./packages/cluster/command-cluster" }
+    { "path": "./packages/experimental/cluster-router" },
+    { "path": "./packages/experimental/cluster-orchestrator" },
+    { "path": "./packages/experimental/cluster-bundle" },
+    { "path": "./packages/experimental/cluster-command" }
   ]
 }
