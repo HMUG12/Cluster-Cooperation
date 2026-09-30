@@ -3890,6 +3890,7 @@ export interface Config {
 - `@deepseek-ai/dsh-experimental-client-ui-agent-team`（[`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-cluster-command` — 需要 `commands` · `agentTeams`（[`packages/experimental/cluster-command/src/index.ts`](../packages/experimental/cluster-command/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native` — requires `computerUse` · `tools` · `systemPrompt` ([`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts))
+- `@deepseek-ai/dsh-experimental-tool-cluster` — 需要 `tools` · `agents` · `agentTeams`（[`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)）
 - `@deepseek-ai/dsh-fs-observation-policy`（[`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts)）
 - `@deepseek-ai/dsh-fs-ssh` — 需要 `ssh` · `sandboxPolicy`（[`packages/ssh/fs-ssh/src/index.ts`](../packages/ssh/fs-ssh/src/index.ts)）
 - `@deepseek-ai/dsh-goal-round-driver` — 需要 `agents` · `goals` · `sessions`（[`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts)）

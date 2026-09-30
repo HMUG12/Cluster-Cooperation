@@ -45,6 +45,7 @@
 | `@deepseek-ai/dsh-tool-subagent-control` | `interrupt_agent`、`list_agents`、`send_message` | `ctx.tools`、`ctx.subagents`、`ctx.agents and ctx.sessionProjections (list_agents only)` | `tool/call`、`tool/result`、`child session events through ctx.subagents` | - | 这些是控制可继续后台 subagent 的全局命名工具：绑定提供方的 `tool-subagent` 实例注册不同的委派工具；本包注册一次 `send_message` 和 `interrupt_agent`，另由 `list_agents` 通过单独加载的 `/list-agents` 插件提供，其目录行使用 sessionProjections 和实时 Agent 注册表。 |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`、`job_list`、`job_output` | `ctx.tools`、`ctx.jobs`、`ctx.systemPrompt` | `tool/call`、`tool/result`、`user/message via agent.inject() for background completion notices` | - | 与任务种类无关的后台任务控制器：后台 bash 命令、PTY 发送和 subagent 都通过相同的 3 个工具读取、列出和终止。加载该插件会挂接控制器，从而启用生产方的 `ctx.jobs.start()`。 |
 | `@deepseek-ai/dsh-experimental-tool-agent-team` | `interrupt_agent`、`list_agents`、`send_message`、`spawn_teammate`、`team_task_create`、`team_task_get`、`team_task_list`、`team_task_update`、`wait_agent` | `ctx.tools`、`ctx.systemPrompt`、`ctx.agentTeams`、`an exact live Team member Agent` | `tool/call`、`team/member`、`team/message/queued`、`team/message/delivered`、`team/task`、`tool/result` | - | 这 9 个工具限定于隐式 Team Lead 与持久 teammate 作用域。随产品发布的 dsh-base bundle 默认禁用该包；文档中的 Agent Teams profile patch 会启用它，并禁用旧 continuable child 的同名控制工具。 |
+| `@deepseek-ai/dsh-experimental-tool-cluster` | `broadcast_message`、`debate`、`motion`、`roundtable` | `ctx.tools`、`ctx.agents`、`ctx.agentTeams`、一个确切的 Team Lead Agent | `tool/call`、`team/task`、`team/message/queued`、`team/message/delivered`、`tool/result` | - | 四个协议都仅限 Lead 调用，并都通过任务板扇出：每个参与者都拥有一行，而汇总任务阻塞在这些行上，于是照常走的释放路径会唤醒汇总者，并把他要读的计数或裁断一并捎上。集群 bundle 会随其余组合一起挂载本包；没有工具运行时的 profile 拿不到工具，也不会因此多出任何依赖要求。 |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
@@ -2301,6 +2302,145 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 
 <a id="deepseek-aidsh-tool-todo"></a>
+
+
+<a id="deepseek-aidsh-dsh-experimental-tool-cluster"></a>
+
+## `@deepseek-ai/dsh-experimental-tool-cluster`
+
+### `broadcast_message`
+
+一次性把一条持久消息发给多个 Team 成员。省略 targets 就是发给当前每个 teammate。只有 Team Lead 可以调用本工具。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "Self-contained message for every target."
+    },
+    "targets": {
+      "type": "array",
+      "description": "Member names to address, in delivery order; omit to address every current teammate.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
+```
+
+来源：[`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+### `debate`
+
+分多轮进行一场辩论：每位发言者每轮各拥有一份发言，每一轮都被前一轮整体阻塞；最后一轮收束时把裁断任务指派给评判者。只有 Team Lead 可以调用本工具。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "The question the debate argues."
+    },
+    "rounds": {
+      "type": "integer",
+      "description": "Rounds to run, at least 2 and at most 5; each round spends every speaker a turn."
+    },
+    "judge": {
+      "type": "string",
+      "description": "Teammate that weighs the final round. Never a speaker, and never the Lead, which no notice can wake."
+    },
+    "speakers": {
+      "type": "array",
+      "description": "Teammate names to seat, in speaking order; omit to seat every current teammate except the judge.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "topic",
+    "rounds",
+    "judge"
+  ]
+}
+```
+
+来源：[`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+### `motion`
+
+把一个动议交付表决：每位投票人各拥有一张选票任务，最后一张选票投出时把计票任务指派给某位 teammate。只有 Team Lead 可以调用本工具。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "motion": {
+      "type": "string",
+      "description": "The motion every voter decides on."
+    },
+    "count": {
+      "type": "string",
+      "description": "Teammate that counts the ballots once the last one is cast. Never the Lead, which no notice can wake."
+    },
+    "voters": {
+      "type": "array",
+      "description": "Teammate names to ask; omit to ask every current teammate.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "motion",
+    "count"
+  ]
+}
+```
+
+来源：[`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+### `roundtable`
+
+并行向多个 teammate 提同一个问题，并在最后一个答案落地时把汇总任务指派给某位 teammate。只有 Team Lead 可以调用本工具。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "description": "The question every participant must answer."
+    },
+    "synthesize": {
+      "type": "string",
+      "description": "Teammate that collects the answers once the last one lands. Never the Lead, which no notice can wake."
+    },
+    "participants": {
+      "type": "array",
+      "description": "Teammate names to ask; omit to ask every current teammate.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "question",
+    "synthesize"
+  ]
+}
+```
+
+来源：[`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+四个协议都仅限 Lead 调用，并都通过任务板扇出：每个参与者都拥有一行，而汇总任务阻塞在这些行上，于是照常走的释放路径会唤醒汇总者，并把他要读的计数或裁断一并捎上。集群 bundle 会随其余组合一起挂载本包；没有工具运行时的 profile 拿不到工具，也不会因此多出任何依赖要求。
 
 ## `@deepseek-ai/dsh-tool-todo`
 

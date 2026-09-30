@@ -7,7 +7,7 @@
  * the rule testable without a live Team and keeps every refusal explicit: a
  * Lead that believes it briefed five members must not be wrong about it.
  *
- * @module @deepseek-ai/dsh-experimental-cluster-orchestrator
+ * @module @deepseek-ai/dsh-experimental-tool-cluster
  */
 
 import type { TeamMemberView } from '@deepseek-ai/dsh-experimental-agent-team'

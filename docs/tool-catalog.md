@@ -41,6 +41,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-subagent-control` | `interrupt_agent`, `list_agents`, `send_message` | `ctx.tools`, `ctx.subagents`, `ctx.agents and ctx.sessionProjections (list_agents only)` | `tool/call`, `tool/result`, `child session events through ctx.subagents` | - | The globally named control tools over continuable background subagents: provider-bound `tool-subagent` instances register distinct delegation tools, while this package registers `send_message` and `interrupt_agent` once, plus `list_agents` from its separately loaded `/list-agents` plugin (whose catalog rows use the sessionProjections and live Agent registries). |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
 | `@deepseek-ai/dsh-experimental-tool-agent-team` | `interrupt_agent`, `list_agents`, `send_message`, `spawn_teammate`, `team_task_create`, `team_task_get`, `team_task_list`, `team_task_update`, `wait_agent` | `ctx.tools`, `ctx.systemPrompt`, `ctx.agentTeams`, `an exact live Team member Agent` | `tool/call`, `team/member`, `team/message/queued`, `team/message/delivered`, `team/task`, `tool/result` | - | All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names. |
+| `@deepseek-ai/dsh-experimental-tool-cluster` | `broadcast_message`, `debate`, `motion`, `roundtable` | `ctx.tools`, `ctx.agents`, `ctx.agentTeams`, `an exact Team Lead Agent` | `tool/call`, `team/task`, `team/message/queued`, `team/message/delivered`, `tool/result` | - | All four protocols are Lead-only and fan out through the board: every participant owns a row the collector task blocks on, so the ordinary release path wakes the collector and carries the count or the verdict it reads. The cluster bundle mounts this package with the rest of the composition; a profile without a tool runtime gets no tools and loads no requirement for one. |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
@@ -2292,6 +2293,144 @@ Wait for the next teammate status, mailbox, or shared-task change after this cal
 Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/experimental/tool-agent-team/src/index.ts)
 
 All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names.
+
+<a id="deepseek-aidsh-experimental-tool-cluster"></a>
+
+## `@deepseek-ai/dsh-experimental-tool-cluster`
+
+### `broadcast_message`
+
+Send one durable message to several Team members at once. Omitting targets addresses every current teammate. Only the Team Lead may call this tool.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "Self-contained message for every target."
+    },
+    "targets": {
+      "type": "array",
+      "description": "Member names to address, in delivery order; omit to address every current teammate.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "message"
+  ]
+}
+```
+
+Source: [`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+### `debate`
+
+Run a debate over several rounds: every speaker owns one speech per round, each round stays blocked until the previous one is argued, and a verdict task is assigned to a judge the moment the final round closes. Only the Team Lead may call this tool.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "The question the debate argues."
+    },
+    "rounds": {
+      "type": "integer",
+      "description": "Rounds to run, at least 2 and at most 5; each round spends every speaker a turn."
+    },
+    "judge": {
+      "type": "string",
+      "description": "Teammate that weighs the final round. Never a speaker, and never the Lead, which no notice can wake."
+    },
+    "speakers": {
+      "type": "array",
+      "description": "Teammate names to seat, in speaking order; omit to seat every current teammate except the judge.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "topic",
+    "rounds",
+    "judge"
+  ]
+}
+```
+
+Source: [`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+### `motion`
+
+Put one motion to a vote: every voter owns a ballot task, and a tally task is assigned to a teammate the moment the last ballot is cast. Only the Team Lead may call this tool.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "motion": {
+      "type": "string",
+      "description": "The motion every voter decides on."
+    },
+    "count": {
+      "type": "string",
+      "description": "Teammate that counts the ballots once the last one is cast. Never the Lead, which no notice can wake."
+    },
+    "voters": {
+      "type": "array",
+      "description": "Teammate names to ask; omit to ask every current teammate.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "motion",
+    "count"
+  ]
+}
+```
+
+Source: [`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+### `roundtable`
+
+Ask several teammates one question in parallel, with a synthesis task that is assigned to a teammate the moment the last answer lands. Only the Team Lead may call this tool.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "description": "The question every participant must answer."
+    },
+    "synthesize": {
+      "type": "string",
+      "description": "Teammate that collects the answers once the last one lands. Never the Lead, which no notice can wake."
+    },
+    "participants": {
+      "type": "array",
+      "description": "Teammate names to ask; omit to ask every current teammate.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "question",
+    "synthesize"
+  ]
+}
+```
+
+Source: [`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
+
+All four protocols are Lead-only and fan out through the board: every participant owns a row the collector task blocks on, so the ordinary release path wakes the collector and carries the count or the verdict it reads. The cluster bundle mounts this package with the rest of the composition; a profile without a tool runtime gets no tools and loads no requirement for one.
 
 <a id="deepseek-aidsh-tool-todo"></a>
 

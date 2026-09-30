@@ -35,7 +35,7 @@ The profile must already contain `@deepseek-ai/dsh-base`, whose Subagent service
 
 ### What you get
 
-The patch disables `tool-subagent-control`, `tool-subagent-list-agents`, `tool-subagent`, and `tool-subagent-fork`, then inserts the Team service, the Team tool set, `@deepseek-ai/dsh-cluster-config`, `@deepseek-ai/dsh-experimental-cluster-router`, and `@deepseek-ai/dsh-experimental-cluster-orchestrator`.
+The patch disables `tool-subagent-control`, `tool-subagent-list-agents`, `tool-subagent`, and `tool-subagent-fork`, then inserts the Team service, the Team tool set, `@deepseek-ai/dsh-cluster-config`, `@deepseek-ai/dsh-experimental-cluster-router`, and `@deepseek-ai/dsh-experimental-cluster-orchestrator`, and `@deepseek-ai/dsh-experimental-tool-cluster`.
 
 -----
 
@@ -47,7 +47,7 @@ The patch disables `tool-subagent-control`, `tool-subagent-list-agents`, `tool-s
 
 | File | Role |
 |---|---|
-| [`cordis.patch.yml`](cordis.patch.yml) | Ordered patch over `dsh-base`: four disables, then five inserts |
+| [`cordis.patch.yml`](cordis.patch.yml) | Ordered patch over `dsh-base`: four disables, then six inserts |
 | [`src/index.ts`](src/index.ts) | Empty module entry; the patch is the runtime content |
 
 The disables are required rather than cosmetic: the Team tools re-use the legacy tool names `send_message`, `list_agents`, and `interrupt_agent`, so a composition that keeps both registrations serves the legacy definitions to Team members.

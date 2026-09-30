@@ -10,7 +10,7 @@
  * refuses a message a member sends to itself, so no notice can wake the Lead,
  * and a synthesis nobody is woken for would never happen.
  *
- * @module @deepseek-ai/dsh-experimental-cluster-orchestrator
+ * @module @deepseek-ai/dsh-experimental-tool-cluster
  */
 
 import type { TeamMemberView } from '@deepseek-ai/dsh-experimental-agent-team'

@@ -6642,6 +6642,9 @@ importers:
       '@deepseek-ai/dsh-experimental-tool-agent-team':
         specifier: workspace:^
         version: link:../tool-agent-team
+      '@deepseek-ai/dsh-experimental-tool-cluster':
+        specifier: workspace:^
+        version: link:../tool-cluster
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
@@ -6686,6 +6689,9 @@ importers:
       '@deepseek-ai/dsh-experimental-agent-team':
         specifier: workspace:^
         version: link:../agent-team
+      '@deepseek-ai/dsh-experimental-tool-cluster':
+        specifier: workspace:^
+        version: link:../tool-cluster
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session
@@ -6935,6 +6941,21 @@ importers:
       '@deepseek-ai/dsh-tool-subagent-control':
         specifier: workspace:^
         version: link:../../subagent/tool-subagent-control
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:^
+        version: link:../../core/tools
+
+  packages/experimental/tool-cluster:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-experimental-agent-team':
+        specifier: workspace:^
+        version: link:../agent-team
       '@deepseek-ai/dsh-tools':
         specifier: workspace:^
         version: link:../../core/tools

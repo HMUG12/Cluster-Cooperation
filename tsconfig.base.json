@@ -297,6 +297,7 @@
       "@deepseek-ai/dsh-cluster-config": ["./packages/cluster/config/src"],
       "@deepseek-ai/dsh-experimental-cluster-orchestrator": ["./packages/experimental/cluster-orchestrator/src"],
       "@deepseek-ai/dsh-experimental-cluster-router": ["./packages/experimental/cluster-router/src"],
+      "@deepseek-ai/dsh-experimental-tool-cluster": ["./packages/experimental/tool-cluster/src"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],

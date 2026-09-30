@@ -10,7 +10,7 @@
  * speaker exactly which calls to make, and a reading of the arguments the
  * verdict has to weigh.
  *
- * @module @deepseek-ai/dsh-experimental-cluster-orchestrator
+ * @module @deepseek-ai/dsh-experimental-tool-cluster
  */
 
 import type { TeamMemberView, TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
@@ -119,7 +119,11 @@ export function isSpeechTask(task: TeamTaskView): boolean {
   return task.subject.startsWith(SPEECH_SUBJECT_PREFIX)
 }
 
-/** Whether one board row is the verdict this module planned. */
+/**
+ * Whether one board row is the verdict this module planned.
+ * @param task - a board row to test.
+ * @returns true when the row's subject carries the verdict prefix.
+ */
 export function isVerdictTask(task: TeamTaskView): boolean {
   return task.subject.startsWith(VERDICT_SUBJECT_PREFIX)
 }

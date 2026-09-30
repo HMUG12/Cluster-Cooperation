@@ -1,6 +1,6 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-cluster-orchestrator",
-  "description": "Wakes the owner of a shared Team task as soon as its blockers complete, and gives the Lead the cluster's conversation tools",
+  "name": "@deepseek-ai/dsh-experimental-tool-cluster",
+  "description": "The four protocols a Cluster Lead can call: one broadcast, one roundtable, one motion, and one debate",
   "version": "0.1.6-alpha.2",
   "publishConfig": {
     "access": "public"
@@ -8,7 +8,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
-    "directory": "packages/experimental/cluster-orchestrator"
+    "directory": "packages/experimental/tool-cluster"
   },
   "type": "module",
   "main": "lib/index.js",
@@ -25,23 +25,16 @@
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
-  "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:^"
-  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
-    "@deepseek-ai/dsh-experimental-tool-cluster": "workspace:^",
-    "@deepseek-ai/dsh-session": "workspace:^",
     "@deepseek-ai/dsh-tools": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
-    "@deepseek-ai/dsh-experimental-tool-cluster": "workspace:^",
-    "@deepseek-ai/dsh-session": "workspace:^",
     "@deepseek-ai/dsh-tools": "workspace:^"
   }
 }

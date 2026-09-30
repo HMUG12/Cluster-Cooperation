@@ -9,7 +9,7 @@
  * task's `blockedBy` list the whole voter roll — so counting needs no state
  * beyond the board that already exists.
  *
- * @module @deepseek-ai/dsh-experimental-cluster-orchestrator
+ * @module @deepseek-ai/dsh-experimental-tool-cluster
  */
 
 import type { TeamMemberView, TeamTaskView } from '@deepseek-ai/dsh-experimental-agent-team'
@@ -87,7 +87,11 @@ export function motionPlan(
   return { ok: true, plan: { ask, skipped: targets.skipped, counter } }
 }
 
-/** Whether one board row is the tally this module counts. */
+/**
+ * Whether one board row is the tally this module counts.
+ * @param task - a board row to test.
+ * @returns true when the row's subject carries the tally prefix.
+ */
 export function isTallyTask(task: TeamTaskView): boolean {
   return task.subject.startsWith(TALLY_SUBJECT_PREFIX)
 }

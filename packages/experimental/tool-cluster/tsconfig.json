@@ -9,10 +9,8 @@
   ],
   "references": [
     { "path": "../../../vendor/cordis" },
-    { "path": "../../../vendor/schemastery" },
     { "path": "../../core/agent" },
-    { "path": "../../core/session" },
-    { "path": "../../experimental/agent-team" },
-    { "path": "../tool-cluster" }
+    { "path": "../../core/tools" },
+    { "path": "../../experimental/agent-team" }
   ]
 }

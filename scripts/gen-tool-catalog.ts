@@ -62,6 +62,7 @@ import * as ToolJobs from '@deepseek-ai/dsh-tool-jobs'
 import BrowserUseRegistry from '@deepseek-ai/dsh-browser-use'
 import * as StagehandBrowserTools from '@deepseek-ai/dsh-experimental-browser-use-stagehand-native'
 import type TeamService from '@deepseek-ai/dsh-experimental-agent-team'
+import * as ToolCluster from '@deepseek-ai/dsh-experimental-tool-cluster'
 import * as ToolTeam from '@deepseek-ai/dsh-experimental-tool-agent-team'
 import * as ToolTodo from '@deepseek-ai/dsh-tool-todo'
 import type PluginManager from '@deepseek-ai/dsh-plugin-manager'
@@ -611,6 +612,44 @@ const TOOL_PACKAGES: ToolPackage[] = [
     scope: ctx => catalogChildScopes.get(ctx) as Agent,
     note:
       'All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-experimental-tool-cluster',
+    dir: 'tool-cluster',
+    source: 'packages/experimental/tool-cluster/src/index.ts',
+    requires: ['ctx.tools', 'ctx.agents', 'ctx.agentTeams', 'an exact Team Lead Agent'],
+    writes: ['tool/call', 'team/task', 'team/message/queued', 'team/message/delivered', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(AgentRegistry)
+      await ctx.plugin(SessionStore)
+      const session = ctx.sessions.create(SessionId('tool-catalog-cluster-lead'))
+      let agent!: Agent
+      const membership = {
+        get root() { return agent },
+        id: session.id,
+        role: 'lead' as const,
+        name: 'lead',
+      }
+      ctx.provide('agentTeams', {
+        tryMembership: (candidate: Agent) => candidate === agent ? membership : undefined,
+        membership: () => membership,
+      } as unknown as TeamService)
+      await ctx.plugin(Object.assign(async (inner: Context) => {
+        agent = {
+          id: session.id,
+          session,
+          options: {},
+          status: 'idle',
+        } as unknown as Agent
+        Object.assign(agent, { ctx: createScope(inner, agent).ctx })
+        await inner.agents.register(agent)
+      }, { inject: ['tools', 'systemPrompt', 'agents', 'agentTeams'] }))
+      await ctx.plugin(ToolCluster)
+      catalogChildScopes.set(ctx, agent)
+    },
+    scope: ctx => catalogChildScopes.get(ctx) as Agent,
+    note:
+      'All four protocols are Lead-only and fan out through the board: every participant owns a row the collector task blocks on, so the ordinary release path wakes the collector and carries the count or the verdict it reads. The cluster bundle mounts this package with the rest of the composition; a profile without a tool runtime gets no tools and loads no requirement for one.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-todo',

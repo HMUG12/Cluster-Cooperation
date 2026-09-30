@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/experimental/cluster-orchestrator/README.md
-README.md: 5729bb73eaca2cef974e8533677fcae5a4cc0a85
-README.zh.md: 96aa0cd9d7b0d6a6d34e1e3fc9219cfaef730415
+README.md: e7b3b0b1baafc395ec518c7ab6d90d7c468b6d78
+README.zh.md: f979434088f1a88769004fb1d45a3105cac9ac59

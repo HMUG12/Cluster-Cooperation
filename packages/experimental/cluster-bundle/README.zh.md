@@ -35,7 +35,7 @@ profile 必须已经包含 `@deepseek-ai/dsh-base`，本层会消费其中的 Su
 
 ### 获得的功能
 
-patch 会禁用 `tool-subagent-control`、`tool-subagent-list-agents`、`tool-subagent` 与 `tool-subagent-fork`，然后插入 Team 服务、Team 工具集、`@deepseek-ai/dsh-cluster-config`、`@deepseek-ai/dsh-experimental-cluster-router` 与 `@deepseek-ai/dsh-experimental-cluster-orchestrator`。
+patch 会禁用 `tool-subagent-control`、`tool-subagent-list-agents`、`tool-subagent` 与 `tool-subagent-fork`，然后插入 Team 服务、Team 工具集、`@deepseek-ai/dsh-cluster-config`、`@deepseek-ai/dsh-experimental-cluster-router` 与 `@deepseek-ai/dsh-experimental-cluster-orchestrator` 与 `@deepseek-ai/dsh-experimental-tool-cluster`。
 
 -----
 
@@ -47,7 +47,7 @@ patch 会禁用 `tool-subagent-control`、`tool-subagent-list-agents`、`tool-su
 
 | 文件 | 职责 |
 |---|---|
-| [`cordis.patch.yml`](cordis.patch.yml) | 叠加在 `dsh-base` 之上的有序 patch：四次禁用，然后五次插入 |
+| [`cordis.patch.yml`](cordis.patch.yml) | 叠加在 `dsh-base` 之上的有序 patch：四次禁用，然后六次插入 |
 | [`src/index.ts`](src/index.ts) | 空模块入口；patch 才是运行内容 |
 
 这些禁用是必需的而非装饰性的：Team 工具复用了 legacy 工具名 `send_message`、`list_agents` 与 `interrupt_agent`，因此同时保留两套注册的组合会把 legacy 定义提供给 Team 成员。

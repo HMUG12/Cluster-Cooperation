@@ -38,3 +38,6 @@
 
     - id: cluster-orchestrator
       name: '@deepseek-ai/dsh-experimental-cluster-orchestrator'
+
+    - id: tool-cluster
+      name: '@deepseek-ai/dsh-experimental-tool-cluster'
