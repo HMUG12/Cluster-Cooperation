@@ -72,7 +72,7 @@ Spend is optional in the payload: a composition that folds no usage simply repor
 - **Nothing renders this yet** — the payload crosses to the browser as a generated Remote method, and the Web panel that consumes it is the next step. Until then the service is mounted and readable, and no page calls it.
 - **The declarations are summarised, not listed** — the view reports the declared cluster name and each member's routed model, but not the full `cluster.yml`: a route list per member is a panel of its own, and the document already has a reader.
 - **Spend covers the members that have spent** — the orchestrator's fold has no row before a member's first model call, so the view lists what it folded rather than the whole roster.
-- **The protocol classification is not in the payload yet** — the board arrives as the Team reports it, so nothing tells a ballot from an ordinary row. Classifying it here would mean importing the protocol subjects' prefixes from `tool-cluster`, and a source import of a newly added package's export does not resolve in this workspace's test runner while the same import from an existing package does; that resolution question is the next slice's first task, not something to duplicate the prefixes around.
+- **The protocol vocabulary is read across the service boundary, not imported** — the classifier lives with the prefixes it reads inside `tool-cluster` and is published as `ctx.clusterProtocols`, because a value import of another workspace package does not resolve in this repository's test resolution while a structural read does. A composition that publishes no vocabulary gets rows with no kind at all, rather than a guess.
 
 -----
 

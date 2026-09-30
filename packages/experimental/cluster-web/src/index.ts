@@ -14,6 +14,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type { ClusterProtocols, ClusterTaskKind } from '@deepseek-ai/dsh-experimental-tool-cluster'
 import { clusterOverview } from './overview.ts'
 import type { ClusterOverview, ClusterSpendRow } from './types.ts'
 
@@ -47,6 +48,7 @@ export class ClusterWeb extends TypertRemoteService {
   @Remote('overview')
   remoteOverview(agent: Agent): ClusterOverview {
     const clusterName = this.clusterName()
+    const classify = this.classify()
     return clusterOverview({
       ...clusterName === undefined ? {} : { clusterName },
       view: {
@@ -54,6 +56,7 @@ export class ClusterWeb extends TypertRemoteService {
         tasks: this.ctx.agentTeams.listTasks(agent),
       },
       spend: this.spend() ?? [],
+      ...classify === undefined ? {} : { classify },
     })
   }
 
@@ -61,6 +64,20 @@ export class ClusterWeb extends TypertRemoteService {
   private clusterName(): string | undefined {
     const source = this.lookup<ClusterNameSource>('clusterConfig')
     return source === undefined ? undefined : source.defaultClusterName()
+  }
+
+  /**
+   * Read the protocol vocabulary the tool package publishes.
+   *
+   * The vocabulary is read across the service boundary rather than imported: a
+   * value import of another workspace package does not resolve in this
+   * repository's test resolution, while a structural read — the same shape used
+   * for the declarations and the spend — does. Without it the view reports no
+   * kinds instead of guessing one.
+   */
+  private classify(): ((subject: string) => ClusterTaskKind) | undefined {
+    const source = this.lookup<ClusterProtocols>('clusterProtocols')
+    return source === undefined ? undefined : subject => source.kindOf(subject)
   }
 
   /** Read the folded spend rows, when a composition folds any. */

@@ -17,6 +17,7 @@ import { TeamTaskId } from '@deepseek-ai/dsh-experimental-agent-team'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 import { broadcastTargets } from './broadcast.ts'
+import { clusterTaskKind, type ClusterProtocols } from './kinds.ts'
 import {
   debatePlan,
   MAX_DEBATE_ROUNDS,
@@ -47,6 +48,9 @@ import {
 // handoff notice, so the vocabulary both packages share is re-exported here
 // rather than reached through a subpath the package does not expose.
 export { debateSummary, isVerdictTask, readStatements } from './debate.ts'
+// Type-only, so nothing is resolved at runtime: a value re-export of another
+// workspace package does not survive this repository's test resolution.
+export type { ClusterProtocols, ClusterTaskKind } from './kinds.ts'
 export { isTallyTask, readTally, tallySummary } from './motion.ts'
 
 /** Cordis plugin name. */
@@ -583,6 +587,13 @@ export function apply(ctx: Context): void {
     }))
   }
 
+
+  // The subject vocabulary is published rather than handed out for import: a
+  // value import across workspace packages does not survive this repository's
+  // test resolution, and a reader that re-spelled the prefixes would drift from
+  // the tools that write them.
+  const protocols: ClusterProtocols = { kindOf: clusterTaskKind }
+  ctx.provide('clusterProtocols', protocols)
 
   const broadcasts = new Map<Agent, () => void>()
   const maybeInstallBroadcast = (agent: Agent): void => {

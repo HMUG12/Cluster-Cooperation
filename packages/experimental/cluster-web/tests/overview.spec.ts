@@ -24,6 +24,15 @@ function task(id: string, subject: string, extra: Partial<TeamTaskView> = {}): T
   }
 }
 
+/** The vocabulary a composition publishes, stood in for without the tool package. */
+function classify(subject: string): 'ballot' | 'tally' | 'speech' | 'verdict' | 'task' {
+  if (subject.startsWith('Ballot: ')) return 'ballot'
+  if (subject.startsWith('Tally: ')) return 'tally'
+  if (subject.startsWith('Debate ')) return 'speech'
+  if (subject.startsWith('Verdict: ')) return 'verdict'
+  return 'task'
+}
+
 describe('clusterOverview', () => {
   it('leads with the Lead, breaks ties by name, and orders tasks by identity', () => {
     const overview = clusterOverview({
@@ -52,6 +61,29 @@ describe('clusterOverview', () => {
     expect(overview.tasks[1]).toMatchObject({ id: 'task-2', owner: 'reviewer', status: 'in_progress' })
     expect(overview.tasks[2]?.blockedBy).toEqual(['task-2'])
     expect(overview.tasks[2]).not.toHaveProperty('owner')
+  })
+
+  it('classifies rows through the published vocabulary and counts every kind', () => {
+    const overview = clusterOverview({
+      view: {
+        members: [member('lead', 'lead')],
+        tasks: [
+          task('task-1', 'Ballot: adopt the schema'),
+          task('task-2', 'Tally: adopt the schema'),
+          task('task-3', 'wire the endpoint'),
+          task('task-4', 'Debate round 1: adopt the schema'),
+        ],
+      },
+      classify,
+    })
+    expect(overview.tasks.map(row => row.kind)).toEqual(['ballot', 'tally', 'task', 'speech'])
+    expect(overview.counts.byKind).toEqual({ ballot: 1, tally: 1, speech: 1, verdict: 0, task: 1 })
+  })
+
+  it('reports no kind at all when the composition publishes no vocabulary', () => {
+    const overview = clusterOverview({ view: { members: [], tasks: [task('task-1', 'Ballot: adopt the schema')] } })
+    expect(overview.tasks[0]).not.toHaveProperty('kind')
+    expect('byKind' in overview.counts).toBe(false)
   })
 
   it('carries the declared name and the folded spend through, and defaults spend to empty', () => {

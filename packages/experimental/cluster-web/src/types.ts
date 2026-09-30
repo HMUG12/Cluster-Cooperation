@@ -9,6 +9,9 @@
  */
 
 import type { TeamTaskView, TeamMemberView, TeamView } from '@deepseek-ai/dsh-experimental-agent-team'
+import type { ClusterTaskKind } from '@deepseek-ai/dsh-experimental-tool-cluster'
+
+export type { ClusterTaskKind }
 
 /** One roster row, flattened for display. */
 export interface ClusterMemberRow {
@@ -36,6 +39,8 @@ export interface ClusterTaskRow {
   readonly ready: boolean
   /** Identities this row waits on. */
   readonly blockedBy: readonly string[]
+  /** Protocol that opened this row, when the composition publishes the vocabulary. */
+  readonly kind?: ClusterTaskKind
 }
 
 /** One member's folded spend, as whatever publishes it reports. */
@@ -62,6 +67,8 @@ export interface ClusterOverviewCounts {
   readonly ready: number
   /** Rows that are still waiting on at least one blocker. */
   readonly blocked: number
+  /** Rows per protocol, when the composition publishes the vocabulary. */
+  readonly byKind?: Readonly<Record<ClusterTaskKind, number>>
 }
 
 /** The whole read-only cluster view. */
@@ -86,4 +93,9 @@ export interface ClusterOverviewInput {
   readonly view: TeamView
   /** Folded spend rows, when the composition folds any. */
   readonly spend?: readonly ClusterSpendRow[]
+  /**
+   * Classifies a subject line, when the composition publishes the protocol
+   * vocabulary. Absent means the view reports no kinds rather than guessing one.
+   */
+  readonly classify?: (subject: string) => ClusterTaskKind
 }
