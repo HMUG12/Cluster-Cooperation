@@ -46,6 +46,8 @@ Choose it when a Web page should show what the cluster is doing without giving t
 | File | Role |
 |---|---|
 | [`src/overview.ts`](src/overview.ts) | The view's shape, the protocol classification, and the ordering |
+| [`src/client/locales.ts`](src/client/locales.ts) | The panel's dictionaries: Chinese is the key source, English is checked against it |
+| [`src/client/panel.ts`](src/client/panel.ts) | What the panel shows, as data: grouping, kind labels, rows, and counts |
 | [`src/index.ts`](src/index.ts) | The service: structural reads, and the one Remote method |
 
 Every rule is a pure function of the roster, the board, and the spend, which is why the tests need no live Team. The ordering is fixed rather than incidental: the Lead leads the roster, members break ties by name, and tasks sort by identity, so two reads of the same board produce the same view — which is what a person comparing two views, and a test, both need.
@@ -72,6 +74,7 @@ Spend is optional in the payload: a composition that folds no usage simply repor
 - **Nothing renders this yet** — the payload crosses to the browser as a generated Remote method, and the Web panel that consumes it is the next step. Until then the service is mounted and readable, and no page calls it.
 - **The declarations are summarised, not listed** — the view reports the declared cluster name and each member's routed model, but not the full `cluster.yml`: a route list per member is a panel of its own, and the document already has a reader.
 - **Spend covers the members that have spent** — the orchestrator's fold has no row before a member's first model call, so the view lists what it folded rather than the whole roster.
+- **The panel's browser half is not registered yet** — the content and the dictionaries are in place and tested, but the React component, the client bundle entry, and the slot registration are the next step, so nothing renders this view in a browser today.
 - **The protocol vocabulary is read across the service boundary, not imported** — the classifier lives with the prefixes it reads inside `tool-cluster` and is published as `ctx.clusterProtocols`, because a value import of another workspace package does not resolve in this repository's test resolution while a structural read does. A composition that publishes no vocabulary gets rows with no kind at all, rather than a guess.
 
 -----
