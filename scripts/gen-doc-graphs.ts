@@ -112,7 +112,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'plugin-manager',
     title: 'Current-profile plugin and bundle management',
     mode: 'core',
-    consumers: ['plugin-manager', 'ui-settings-plugin-inventory'],
+    consumers: ['plugin-manager', 'client-ui-settings-plugin-inventory'],
     note: 'Shares profile package operations with the CLI and reports persisted and running state to Web and agent callers.',
   },
   {
@@ -666,7 +666,7 @@ const SERVICE_ROLES: ServiceRole[] = [
   },
   {
     key: 'inspector',
-    pkg: 'inspector',
+    pkg: 'experimental-inspector',
     title: 'Cross-realm runtime inspection',
     mode: 'core',
     note: 'Owns the Worker-hosted CDP target and the transport-independent Host and Client observation and Cordis-tree query API.',
@@ -837,8 +837,61 @@ function assertServiceRolesComplete(services: readonly ServiceEntry[]): void {
   }
 }
 
+/**
+ * One service role's package references, named the way the seams page names them.
+ *
+ * A short name is the package's npm name with `@deepseek-ai/dsh-` removed, so a
+ * package that moves into `packages/experimental/` changes its short name to
+ * `experimental-…` whether or not anyone remembered to update this table.
+ */
+export interface ServiceRolePackages {
+  /** Service key the role classifies; used only in the failure message. */
+  readonly key: string
+  /** Package that declares the service. */
+  readonly pkg: string
+  /** Packages that implement the service, when it has any. */
+  readonly implementations?: readonly string[]
+  /** Packages that consume the service directly. */
+  readonly consumers?: readonly string[]
+  /** Companion plugins gated on the service's events. */
+  readonly companions?: readonly string[]
+}
+
+/**
+ * Reject a service role that names a package the workspace does not have.
+ *
+ * An unknown short name renders as plain text: the page keeps its shape, the
+ * link disappears, and regeneration agrees with whatever was committed. That is
+ * how a renamed consumer silently drops out of the seams table, so the names are
+ * checked against the package graph and a miss fails the generator instead.
+ * @param pkgs - package nodes, carrying every short name the workspace declares.
+ * @param roles - service-role classifications whose references must resolve.
+ * @throws When a role names a package outside the workspace.
+ */
+export function assertServiceRolePackagesExist(
+  pkgs: readonly { readonly short: string }[],
+  roles: readonly ServiceRolePackages[],
+): void {
+  const known = new Set(pkgs.map(pkg => pkg.short))
+  const unknown = new Map<string, string[]>()
+  for (const role of roles) {
+    const referenced = [role.pkg, ...role.implementations ?? [], ...role.consumers ?? [], ...role.companions ?? []]
+    for (const name of referenced) {
+      if (known.has(name)) continue
+      unknown.set(name, [...unknown.get(name) ?? [], role.key])
+    }
+  }
+  if (unknown.size === 0) return
+  throw new Error(
+    'unknown package short names in service roles: '
+    + [...unknown].map(([name, keys]) => `${name} (${keys.sort().join(', ')})`).join('; ')
+    + '; a short name is the npm name with `@deepseek-ai/dsh-` removed.',
+  )
+}
+
 function renderCapabilitySeams(pkgs: Pkg[], services: readonly ServiceEntry[]): string {
   assertServiceRolesComplete(services)
+  assertServiceRolePackagesExist(pkgs, SERVICE_ROLES)
   const pkgsByShort = new Map(pkgs.map(pkg => [pkg.short, pkg]))
   const maintenance = 'hybrid: services are discovered from Cordis declarations; interface/implementation/consumer roles are classified in `scripts/gen-doc-graphs.ts` with a completeness guard'
   const nodes = new Map<string, string>()

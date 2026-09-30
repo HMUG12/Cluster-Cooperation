@@ -9,7 +9,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { collectPackageSources, EventRelationCollector } from './gen-doc-graphs.ts'
+import {
+  assertServiceRolePackagesExist,
+  collectPackageSources,
+  EventRelationCollector,
+} from './gen-doc-graphs.ts'
 import { TypeScriptProject } from './ts-project.ts'
 
 const FIXTURE: Record<string, string> = {
@@ -94,5 +98,35 @@ describe('event relation call-site indexing', () => {
     // pkgc alone: the script helper is the first demand, so a wrongly passing
     // proof would index helper.ts only and lose the caller.ts call site.
     expect(dispatchersOf(['pkgc'], 'pkgc/script-event')).toEqual(['pkgc'])
+  })
+})
+
+describe('service role package references', () => {
+  const roles = [{
+    key: 'clusterConfig',
+    pkg: 'cluster-config',
+    consumers: ['experimental-cluster-router'],
+  }]
+
+  it('accepts the short names the workspace declares', () => {
+    expect(() => assertServiceRolePackagesExist(
+      [{ short: 'cluster-config' }, { short: 'experimental-cluster-router' }],
+      roles,
+    )).not.toThrow()
+  })
+
+  it('rejects a name no package declares, which would otherwise render as plain text', () => {
+    // The pre-move spelling of the same package: the link would vanish silently.
+    expect(() => assertServiceRolePackagesExist(
+      [{ short: 'cluster-config' }, { short: 'cluster-router' }],
+      roles,
+    )).toThrow(/experimental-cluster-router \(clusterConfig\)/)
+  })
+
+  it('reports every role that names the same missing package', () => {
+    expect(() => assertServiceRolePackagesExist([], [
+      { key: 'two', pkg: 'ghost' },
+      { key: 'one', pkg: 'ghost' },
+    ])).toThrow(/ghost \(one, two\)/)
   })
 })
