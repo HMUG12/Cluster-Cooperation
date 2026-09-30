@@ -41,3 +41,6 @@
 
     - id: tool-cluster
       name: '@deepseek-ai/dsh-experimental-tool-cluster'
+
+    - id: cluster-web
+      name: '@deepseek-ai/dsh-experimental-cluster-web'

@@ -28,6 +28,7 @@ kind: "package-group"
 | [`agent-team`](agent-team/README.zh.md) | 具名 teammate，成员之间持久消息与共享任务板 | `ctx.agentTeams` |
 | [`agent-team-web-profile`](agent-team-web-profile/README.zh.md) | Agent Teams 的公开 opt-in Web 层 | — |
 | [`client-ui-agent-team`](client-ui-agent-team/README.zh.md) | Web Team roster、任务板与 teammate 导航 | — |
+| [`cluster-web`](cluster-web/README.zh.md) | Web 面板读取的只读集群总览：花名册、任务板、协议计数与折算花费 | `ctx.clusterWeb` |
 | [`auto-review`](auto-review/README.zh.md) | 显式 Web 层，在每个原生或 PTC inner 工具调用前使用同一模型审查 | — |
 | [`ptc-runtime-python`](ptc-runtime-python/README.zh.md) | PTC 执行 seam 的 CPython 子进程后端 | `ctx.ptcRuntime` |
 | [`computer-use-cua-driver-mcp`](computer-use-cua-driver-mcp/README.zh.md) | 通过 MCP 使用已安装的 Cua Driver | `ctx.computerUse` |

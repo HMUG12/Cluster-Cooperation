@@ -37,6 +37,7 @@
     "@deepseek-ai/dsh-experimental-cluster-orchestrator": "workspace:^",
     "@deepseek-ai/dsh-experimental-cluster-router": "workspace:^",
     "@deepseek-ai/dsh-experimental-tool-cluster": "workspace:^",
+    "@deepseek-ai/dsh-experimental-cluster-web": "workspace:^",
     "@deepseek-ai/dsh-experimental-agent-team": "workspace:^",
     "@deepseek-ai/dsh-experimental-tool-agent-team": "workspace:^"
   },

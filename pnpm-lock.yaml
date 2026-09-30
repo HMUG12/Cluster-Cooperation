@@ -6639,6 +6639,9 @@ importers:
       '@deepseek-ai/dsh-experimental-cluster-router':
         specifier: workspace:^
         version: link:../cluster-router
+      '@deepseek-ai/dsh-experimental-cluster-web':
+        specifier: workspace:^
+        version: link:../cluster-web
       '@deepseek-ai/dsh-experimental-tool-agent-team':
         specifier: workspace:^
         version: link:../tool-agent-team
@@ -6717,6 +6720,24 @@ importers:
       '@deepseek-ai/dsh-experimental-agent-team':
         specifier: workspace:^
         version: link:../agent-team
+
+  packages/experimental/cluster-web:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-experimental-agent-team':
+        specifier: workspace:^
+        version: link:../agent-team
+      '@deepseek-ai/dsh-experimental-tool-cluster':
+        specifier: workspace:^
+        version: link:../tool-cluster
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
 
   packages/experimental/computer-use-cua-driver-mcp:
     dependencies:
