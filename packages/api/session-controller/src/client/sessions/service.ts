@@ -76,7 +76,9 @@ export class SessionCreateError extends Error {
    * @param requestedSessionId - caller-preallocated id used for later stream/list reconciliation.
    */
   constructor(
+    /** Host business or folded transport error. */
     readonly rpcError: RemoteFailure,
+    /** Caller-preallocated id used for later stream/list reconciliation. */
     readonly requestedSessionId: SessionId | undefined,
   ) {
     super(`session create failed: ${rpcError.code}: ${rpcError.message}`)
@@ -92,7 +94,9 @@ export class SessionForkError extends Error {
    * @param sourceSessionId - the session the fork was cut from.
    */
   constructor(
+    /** Host business or folded transport error. */
     readonly rpcError: RemoteFailure,
+    /** The session the fork was cut from. */
     readonly sourceSessionId: SessionId,
   ) {
     super(`session fork failed: ${rpcError.code}: ${rpcError.message}`)

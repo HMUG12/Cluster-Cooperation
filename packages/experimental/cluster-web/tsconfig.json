@@ -1,17 +1,7 @@
 {
-  "extends": "../../../tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "lib/types"
-  },
-  "include": [
-    "src"
-  ],
+  "files": [],
   "references": [
-    { "path": "../../../vendor/cordis" },
-    { "path": "../../core/agent" },
-    { "path": "../../typert/protocol" },
-    { "path": "../agent-team" },
-    { "path": "../tool-cluster" }
+    { "path": "./tsconfig.host.json" },
+    { "path": "./tsconfig.client.json" }
   ]
 }

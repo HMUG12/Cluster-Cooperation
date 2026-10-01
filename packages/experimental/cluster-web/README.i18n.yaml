@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/experimental/cluster-web/README.md
-README.md: bd5018924941992bb1425f935d656b872eb733b9
-README.zh.md: 99fdbea92c61b37d02b1b213e8a415aea69cec00
+README.md: 341999a9c24db5edc4cfa4c7a553e164897619ce
+README.zh.md: 22ec8f59576a35bd95c49308ca0a5a96c3475549

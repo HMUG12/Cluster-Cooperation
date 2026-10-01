@@ -409,7 +409,7 @@
     { "path": "./packages/cluster/config" },
     { "path": "./packages/experimental/cluster-router" },
     { "path": "./packages/experimental/tool-cluster" },
-    { "path": "./packages/experimental/cluster-web" },
+    { "path": "./packages/experimental/cluster-web/tsconfig.host.json" },
     { "path": "./packages/experimental/cluster-orchestrator" },
     { "path": "./packages/experimental/cluster-bundle" },
     { "path": "./packages/experimental/cluster-command" }

@@ -1,13 +1,7 @@
-import { defineConfig } from 'tsdown'
+import { clientBundle } from '../../client/tsdown.client.ts'
 
-/** Build the overview service as its own package export. */
-export default defineConfig({
-  entry: ['lib/types/index.js'],
-  outDir: 'lib',
-  format: ['esm'],
-  platform: 'node',
-  target: 'es2024',
-  fixedExtension: false,
-  dts: false,
-  clean: false,
-})
+export default clientBundle(
+  '@deepseek-ai/dsh-experimental-cluster-web',
+  ['lib/types/index.js'],
+  { hostPhase: true },
+)
