@@ -90,6 +90,9 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
             : (
               <>
                 <p data-cluster-title="">{content.title}</p>
+                {content.unconfigured === undefined
+                  ? null
+                  : <p data-cluster-unconfigured="" role="status">{content.unconfigured}</p>}
                 <p data-cluster-summary="">{content.summary.join('')}</p>
                 {content.sections.map(section => (
                   <div key={section.key} data-cluster-section={section.key}>
