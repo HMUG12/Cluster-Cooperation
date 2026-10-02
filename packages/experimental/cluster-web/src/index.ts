@@ -26,8 +26,8 @@ interface ClusterConfigSource {
   /** Read the document to edit, or a starter to begin from. */
   currentDocument?(): unknown
   /** Build the document a first-time user starts from. */
-  starter?(): unknown  /** Validate and write a candidate document, as the schema-owning service does. */
-  save?(document: unknown): unknown
+  starter?(): unknown  /** Parse, validate and write candidate document text. */
+  saveText?(text: string): unknown
 }
 
 /** Structural view of the optional folded-spend view. */
@@ -72,25 +72,30 @@ export class ClusterWeb extends TypertRemoteService {
   }
 
   /**
-   * Write a cluster document through the generated Remote API.
+   * Write edited document text through the generated Remote API.
    *
-   * The candidate is validated by the service that owns the schema, so a document
-   * with a rejected field never reaches the disk and the caller learns which field
-   * failed. Authority is the same as for reading: the caller must be a live member
-   * of a cluster, and a composition with no configuration service mounted says so
-   * rather than pretending something was saved.
+   * The text is parsed and validated by the service that owns the schema, so a
+   * rejected field never reaches the disk and the reason travels back as a value
+   * rather than as a transport failure: a rejected field is an ordinary outcome
+   * of editing, not an exception a panel has to catch to stay usable. Authority
+   * is the same as for reading, and a service that cannot accept text says so.
    * @param agent - exact live Team member used as the authority credential.
-   * @param document - candidate cluster document, validated before it is written.
-   * @returns the validated document as it was written.
+   * @param text - candidate document text, parsed and validated before it is written.
+   * @returns whether it was written, and the reason when it was not.
    */
   @Remote('saveConfiguration')
-  remoteSaveConfiguration(agent: Agent, document: unknown): unknown {
+  remoteSaveConfiguration(agent: Agent, text: string): { saved: true } | { saved: false; reason: string } {
     this.requireMember(agent)
     const source = this.lookup<ClusterConfigSource>('clusterConfig')
-    if (source?.save === undefined) {
-      throw new Error('no cluster configuration service is mounted, so there is nothing to write')
+    if (source?.saveText === undefined) {
+      return { saved: false, reason: 'this cluster configuration service cannot accept text, so a panel cannot write it' }
     }
-    return source.save(document)
+    try {
+      source.saveText(text)
+      return { saved: true }
+    } catch (error) {
+      return { saved: false, reason: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**

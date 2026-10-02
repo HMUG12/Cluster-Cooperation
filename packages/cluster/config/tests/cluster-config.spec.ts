@@ -51,6 +51,70 @@ describe('saving a document', () => {
   })
 })
 
+describe('editing the document as text', () => {
+  /** Mount the service on an empty directory and hand back both. */
+  function empty(): { service: ClusterConfig; file: string } {
+    const directory = mkdtempSync(join(tmpdir(), 'cluster-config-text-'))
+    const file = join(directory, 'cluster.yml')
+    return { service: new ClusterConfig(new Context(), { file }), file }
+  }
+
+  const yaml = 'version: 1\nclusters:\n  default:\n    topology: star\n    lead: {}\n    members:\n      - name: coder\n'
+
+  it('writes text through the one parser and schema this repository owns', () => {
+    const { service, file } = empty()
+    expect(service.configured).toBe(false)
+    service.saveText(yaml)
+    expect(service.configured).toBe(true)
+    expect(service.currentDocument().clusters['default']?.members[0]?.name).toBe('coder')
+    expect(readFileSync(file, 'utf8')).toContain('coder')
+  })
+
+  it('reports a rejected field and leaves the file untouched', () => {
+    const { service, file } = empty()
+    service.saveText(yaml)
+    const before = readFileSync(file, 'utf8')
+    expect(() => service.saveText('version: 1\nclusters:\n  default:\n    topology: swarm\n')).toThrow(/topology/i)
+    expect(readFileSync(file, 'utf8')).toBe(before)
+  })
+
+  it('refuses text that is not parseable at all, rather than writing half of it', () => {
+    const { service, file } = empty()
+    expect(() => service.saveText('version: 1\nclusters: [oops\n')).toThrow()
+    expect(service.configured).toBe(false)
+    expect(existsSync(file)).toBe(false)
+  })
+
+  it('hands out a starter that is already valid and names the configured default', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'cluster-config-starter-'))
+    const service = new ClusterConfig(new Context(), { file: join(directory, 'cluster.yml'), defaultCluster: 'crew' })
+    const starter = service.starter()
+    // The starter is a reading, so the cluster carries the name its key gives.
+    // Re-reading a reading is not a valid check: the file never spells that name.
+    expect(starter.clusters['crew']?.name).toBe('crew')
+    expect(starter.defaultCluster).toBe('crew')
+    expect(Object.keys(starter.clusters)).toEqual(['crew'])
+    expect(starter.clusters['crew']?.members[0]?.name).toBe('worker')
+    // A starter must be writable as hand-written text, so a first-time user can
+    // save it unchanged and then edit it. This is the text the panel will show.
+    expect(() => service.saveText('version: 1\ndefaultCluster: crew\nclusters:\n  crew:\n    topology: star\n    lead: {}\n    members:\n      - name: worker\n        context: fresh\n')).not.toThrow()
+  })
+
+  it('invents no route and no description: both are the operator to supply', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'cluster-config-starter-shape-'))
+    const starter = new ClusterConfig(new Context(), { file: join(directory, 'cluster.yml') }).starter()
+    const cluster = starter.clusters[starter.defaultCluster ?? '']
+    expect(cluster?.lead).toEqual({})
+    expect(cluster?.members.map(member => member.name)).toEqual(['worker'])
+    expect(Object.keys(starter.models)).toEqual([])
+  })
+
+  it('reads an absent document as empty rather than failing the caller', () => {
+    const { service } = empty()
+    expect(service.currentDocument().clusters).toEqual({})
+  })
+})
+
 describe('unconfigured service', () => {
   /** Mount the service on a path where no document exists. */
   function absent(): ClusterConfig {

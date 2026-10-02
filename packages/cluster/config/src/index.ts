@@ -267,6 +267,22 @@ export class ClusterConfig extends Service {
   }
 
   /**
+   * Validate text and write it, so a surface can edit the document as text.
+   *
+   * The text is parsed here rather than in the client because this service owns
+   * both the only parser and the only schema: a caller that parsed on its own
+   * would either accept what this repository rejects or reject what it accepts,
+   * and the two failures would look the same to a user.
+   * @param text - candidate document text, in YAML or JSON.
+   * @returns the validated document.
+   * @throws ClusterConfigError when a field is rejected.
+   * @throws Error when the text is not parseable at all.
+   */
+  saveText(text: string): ClusterDocument {
+    return this.save(parse(text))
+  }
+
+  /**
    * Build the document a first-time user starts from.
    *
    * It carries structure only: the operator's own cluster name, a star topology,
@@ -280,14 +296,18 @@ export class ClusterConfig extends Service {
     // otherwise: an absent default is not a reason to refuse to hand out a
     // starting point, and the key is an identifier rather than copy.
     const name = this.forced ?? 'cluster'
-    return {
-      version: CLUSTER_DOCUMENT_VERSION,
-      models: {},
-      defaultCluster: name,
-      clusters: {
-        [name]: { name, topology: 'star', lead: {}, members: [{ name: 'worker', context: 'fresh' }] },
+    // Built through the reader so the result is a document this service accepts:
+    // a cluster's name is carried by its key in the file and filled in by the
+    // reading, so writing one here would be rejected as an unknown field.
+    return readClusterDocument(
+      {
+        version: CLUSTER_DOCUMENT_VERSION,
+        models: {},
+        defaultCluster: name,
+        clusters: { [name]: { topology: 'star', lead: {}, members: [{ name: 'worker', context: 'fresh' }] } },
       },
-    }
+      'starter',
+    )
   }
 
   /**
