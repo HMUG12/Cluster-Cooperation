@@ -17,6 +17,7 @@ import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { parse, stringify } from 'yaml'
 import { renderBriefing } from './briefing.ts'
 import { readClusterDocument } from './document.ts'
+import { CLUSTER_DOCUMENT_VERSION } from './types.ts'
 import type { ClusterDocument, ClusterSpec, MemberSpec, ReviewSpec, RouteSpec } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -251,6 +252,42 @@ export class ClusterConfig extends Service {
     this.document = validated
     this.absent = false
     return validated
+  }
+
+  /**
+   * Read the document a settings surface edits.
+   *
+   * An absent document reads as the empty one rather than throwing, because a
+   * panel asking what to edit is exactly the case where no file exists yet;
+   * {@link configured} tells the two apart.
+   * @returns the loaded document, empty when none has been written.
+   */
+  currentDocument(): ClusterDocument {
+    return this.loaded()
+  }
+
+  /**
+   * Build the document a first-time user starts from.
+   *
+   * It carries structure only: the operator's own cluster name, a star topology,
+   * and one worker. No route and no prose is invented here, because a model id is
+   * an environment fact this repository does not know and a description is copy
+   * that would have to be translated; both are the operator's to supply.
+   * @returns a valid document naming the configured default cluster.
+   */
+  starter(): ClusterDocument {
+    // The operator's own name when they declared one, and a plain structural key
+    // otherwise: an absent default is not a reason to refuse to hand out a
+    // starting point, and the key is an identifier rather than copy.
+    const name = this.forced ?? 'cluster'
+    return {
+      version: CLUSTER_DOCUMENT_VERSION,
+      models: {},
+      defaultCluster: name,
+      clusters: {
+        [name]: { name, topology: 'star', lead: {}, members: [{ name: 'worker', context: 'fresh' }] },
+      },
+    }
   }
 
   /**

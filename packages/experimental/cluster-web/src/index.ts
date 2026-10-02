@@ -19,21 +19,20 @@ import { clusterOverview } from './overview.ts'
 import type { ClusterOverview, ClusterSpendRow } from './types.ts'
 
 /** Structural view of the optional cluster declaration service. */
-interface ClusterNameSource {
+interface ClusterConfigSource {
   defaultClusterName(): string
   /** Whether a document exists. Present on services that report it. */
   readonly configured?: boolean
+  /** Read the document to edit, or a starter to begin from. */
+  currentDocument?(): unknown
+  /** Build the document a first-time user starts from. */
+  starter?(): unknown  /** Validate and write a candidate document, as the schema-owning service does. */
+  save?(document: unknown): unknown
 }
 
 /** Structural view of the optional folded-spend view. */
 interface ClusterSpendSource {
   members(): readonly ClusterSpendRow[]
-}
-
-/** Structural view of the configuration service when it can also write. */
-interface ClusterWriterSource {
-  /** Validate and write a candidate document, as the schema-owning service does. */
-  save(document: unknown): unknown
 }
 
 /** Cluster overview service consumed by the Web panel. */
@@ -57,7 +56,7 @@ export class ClusterWeb extends TypertRemoteService {
   remoteOverview(agent: Agent): ClusterOverview {
     const clusterName = this.clusterName()
     const classify = this.classify()
-    const configured = this.lookup<ClusterNameSource>('clusterConfig')?.configured
+    const configured = this.lookup<ClusterConfigSource>('clusterConfig')?.configured
     return clusterOverview({
       ...clusterName === undefined ? {} : { clusterName },
       // Absent means the service predates the flag or is not mounted; a panel
@@ -86,19 +85,57 @@ export class ClusterWeb extends TypertRemoteService {
    */
   @Remote('saveConfiguration')
   remoteSaveConfiguration(agent: Agent, document: unknown): unknown {
-    if (this.ctx.agentTeams.listMembers(agent).length === 0) {
-      throw new Error(`session ${agent.id} belongs to no cluster, so it cannot configure one`)
-    }
-    const source = this.lookup<ClusterWriterSource>('clusterConfig')
-    if (source === undefined) {
+    this.requireMember(agent)
+    const source = this.lookup<ClusterConfigSource>('clusterConfig')
+    if (source?.save === undefined) {
       throw new Error('no cluster configuration service is mounted, so there is nothing to write')
     }
     return source.save(document)
   }
 
+  /**
+   * Read the document a settings surface edits.
+   *
+   * An unconfigured cluster reads as a starter rather than as nothing, because
+   * the panel's job in that state is to hand the user something to edit; whether
+   * a file already exists travels alongside it, so the surface can say so instead
+   * of implying an empty document was loaded from disk.
+   * @param agent - exact live Team member used as the authority credential.
+   * @returns whether a document exists, and the document to edit.
+   * @throws Error when the caller is not a cluster member or no service is mounted.
+   */
+  @Remote('readConfiguration')
+  remoteReadConfiguration(agent: Agent): { configured: boolean; document: unknown } {
+    this.requireMember(agent)
+    const source = this.lookup<ClusterConfigSource>('clusterConfig')
+    if (source === undefined) {
+      throw new Error('no cluster configuration service is mounted, so there is nothing to read or write')
+    }
+    const configured = source.configured ?? false
+    // A service that predates these readers still answers the declaration
+    // questions this package depends on, so it reports nothing to edit rather
+    // than refusing the panel outright.
+    if (configured) return { configured, document: source.currentDocument?.call(source) }
+    return { configured, document: source.starter?.call(source) }
+  }
+
+  /**
+   * Refuse a caller that belongs to no cluster.
+   *
+   * Reading and writing both go through this, so a session that is not part of a
+   * cluster gets the same answer whichever one it asks for.
+   * @param agent - exact live Team member used as the authority credential.
+   * @throws Error when the member is in no cluster.
+   */
+  private requireMember(agent: Agent): void {
+    if (this.ctx.agentTeams.listMembers(agent).length === 0) {
+      throw new Error(`session ${agent.id} belongs to no cluster, so it cannot configure one`)
+    }
+  }
+
   /** Read the declared cluster name, when a composition mounts the declarations. */
   private clusterName(): string | undefined {
-    const source = this.lookup<ClusterNameSource>('clusterConfig')
+    const source = this.lookup<ClusterConfigSource>('clusterConfig')
     return source === undefined ? undefined : source.defaultClusterName()
   }
 
