@@ -85,16 +85,20 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
         {t('title')}
       </button>
       {open && (
-        <section aria-label={t('title')} data-cluster-panel="">
+        <section className={css.panel} aria-label={t('title')} data-cluster-panel="">
           {content === null
-            ? <p role="status">{loading ? t('loading') : error ?? ''}</p>
+            ? <p className={css.empty} role="status">{loading ? t('loading') : error ?? ''}</p>
             : (
               <>
-                <p data-cluster-title="">{content.title}</p>
+                <p className={css.title} data-cluster-title="">{content.title}</p>
                 {content.unconfigured === undefined
                   ? null
-                  : <p data-cluster-unconfigured="" role="status">{content.unconfigured}</p>}
-                <p data-cluster-summary="">{content.summary.join('')}</p>
+                  : (
+                    <p className={css.unconfigured} data-cluster-unconfigured="" role="status">
+                      {content.unconfigured}
+                    </p>
+                  )}
+                <p className={css.summary} data-cluster-summary="">{content.summary.join('')}</p>
                 {content.sections.map(section => (
                   <div key={section.key} className={css.section} data-cluster-section={section.key}>
                     <h3 className={css.sectionTitle}>{section.title}</h3>

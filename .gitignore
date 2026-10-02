@@ -57,3 +57,7 @@ _tmp_*
 # Leftovers from the built-package invariant check, which cannot always clean up
 # after itself when the host blocks bulk deletion.
 .dsh-built-invariant-*/
+
+# Runtime cluster configuration. The document a composition reads is local state,
+# not source: the committed template is packages/cluster/cluster.example.yml.
+cluster.yml
