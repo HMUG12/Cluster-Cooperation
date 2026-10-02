@@ -50,3 +50,6 @@ native/system/test/bin/
 
 # VitePress build cache written by the documentation build.
 website/.vitepress/.temp/
+
+# Temporary files some tooling writes at the repository root.
+_tmp_*
