@@ -79,8 +79,9 @@ None, as the view reads services the cluster already publishes and adds no conte
 
 This package adds no model request content; the cluster tools own prompt, schema, and cache effects.
 
-<a id="known-limitations-and-deferred-work"></a>
 ## Known Limitations and Deferred Work
+
+<a id="known-limitations-and-deferred-work"></a>
 
 - No runtime invariant companion is published because the view is a pure function of three inputs, and those inputs are already asserted by the packages that own them.
 - **The panel needs the experimental Web layer** — the Host service is mounted by `cluster-bundle`, and the header action appears only when [`cluster-web-profile`](../cluster-web-profile/README.md) is added to a Web profile.

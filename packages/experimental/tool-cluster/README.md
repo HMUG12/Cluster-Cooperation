@@ -126,10 +126,9 @@ One tool call and one JSON result in the Lead's history, one notice per opening-
 
 Append-only everywhere: every notice lands after the reusable request prefix, so no cached prefix is invalidated.
 
------
+## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
-## Known Limitations and Deferred Work
 
 - No runtime invariant companion is published because every rule is a pure function of the board and the config, and replaying those is the check.
 - **Lead-only** — a teammate has `send_message`, `team_task_*`, and its own mailbox; the four protocols exist so one member can put a single question to many, and a teammate that needs that asks the Lead.

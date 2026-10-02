@@ -79,8 +79,9 @@ kind: "package-reference"
 
 本包不添加任何模型请求内容；Prompt、Schema 与缓存影响由集群工具拥有。
 
-<a id="known-limitations-and-deferred-work"></a>
 ## 已知限制与未完成事项
+
+<a id="known-limitations-and-deferred-work"></a>
 
 - 未发布运行时不变式伴随包：本视图是三个输入的纯函数，而这三个输入已由拥有它们的那些包各自断言过。
 - **面板需要那一层实验性 Web 层** — Host 服务由 `cluster-bundle` 挂载，而会话头部动作只有在把 [`cluster-web-profile`](../cluster-web-profile/README.zh.md) 加入某个 Web profile 后才会出现。
