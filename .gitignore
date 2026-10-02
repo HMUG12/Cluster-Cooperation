@@ -53,3 +53,7 @@ website/.vitepress/.temp/
 
 # Temporary files some tooling writes at the repository root.
 _tmp_*
+
+# Leftovers from the built-package invariant check, which cannot always clean up
+# after itself when the host blocks bulk deletion.
+.dsh-built-invariant-*/
