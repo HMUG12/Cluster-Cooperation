@@ -1,0 +1,115 @@
+/**
+ * Cluster panel styling.
+ *
+ * The panel is an extension of the conversation header rather than a document
+ * pasted under it: it shares the surface, border, and rhythm the surrounding UI
+ * uses, and it inherits the app's fonts and colors instead of declaring its own
+ * palette. Only spacing, hierarchy, and state live here.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 320px;
+  max-width: 460px;
+  padding: 12px 14px;
+  border: 1px solid var(--dsh-border, rgb(128 128 128 / 25%));
+  border-radius: 8px;
+  background: var(--dsh-surface, Canvas);
+  color: inherit;
+  font: inherit;
+}
+
+.summary,
+.title {
+  margin: 0;
+  color: var(--dsh-text-secondary, rgb(128 128 128));
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.title {
+  font-weight: 600;
+  color: inherit;
+  font-size: 13px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dsh-text-secondary, rgb(128 128 128));
+}
+
+.empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsh-text-secondary, rgb(128 128 128));
+  font-style: italic;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background-color 120ms ease;
+}
+
+.row:hover {
+  background: var(--dsh-surface-hover, rgb(128 128 128 / 12%));
+}
+
+.label {
+  grid-column: 1;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail {
+  grid-row: 2;
+  grid-column: 1;
+  font-size: 11px;
+  color: var(--dsh-text-secondary, rgb(128 128 128));
+}
+
+.status {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-size: 11px;
+  color: var(--dsh-text-secondary, rgb(128 128 128));
+  white-space: nowrap;
+}
+
+.unconfigured {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--dsh-warning-border, rgb(200 150 0 / 45%));
+  border-radius: 6px;
+  background: var(--dsh-warning-surface, rgb(200 150 0 / 10%));
+  font-size: 12px;
+  line-height: 1.5;
+}

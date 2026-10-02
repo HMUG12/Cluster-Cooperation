@@ -16,6 +16,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ClusterOverview } from '../types.ts'
 import { clusterPanel } from './panel.ts'
 import { NS } from './locales.ts'
+import css from './ClusterPanel.module.css'
 
 /** Business action injected by the browser plugin. */
 export interface ClusterPanelInjected {
@@ -95,17 +96,17 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
                   : <p data-cluster-unconfigured="" role="status">{content.unconfigured}</p>}
                 <p data-cluster-summary="">{content.summary.join('')}</p>
                 {content.sections.map(section => (
-                  <div key={section.key} data-cluster-section={section.key}>
-                    <h3>{section.title}</h3>
+                  <div key={section.key} className={css.section} data-cluster-section={section.key}>
+                    <h3 className={css.sectionTitle}>{section.title}</h3>
                     {section.rows.length === 0
-                      ? <p>{section.empty}</p>
+                      ? <p className={css.empty}>{section.empty}</p>
                       : (
-                        <ul>
+                        <ul className={css.rows}>
                           {section.rows.map(row => (
-                            <li key={row.key}>
-                              <span data-cluster-label="">{row.label}</span>
-                              <span data-cluster-detail="">{row.detail}</span>
-                              {row.status === '' ? null : <span data-cluster-status="">{row.status}</span>}
+                            <li key={row.key} className={css.row}>
+                              <span className={css.label} data-cluster-label="">{row.label}</span>
+                              <span className={css.detail} data-cluster-detail="">{row.detail}</span>
+                              {row.status === '' ? null : <span className={css.status} data-cluster-status="">{row.status}</span>}
                             </li>
                           ))}
                         </ul>
