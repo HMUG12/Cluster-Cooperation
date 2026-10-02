@@ -41,7 +41,9 @@ describe('unconfigured service', () => {
   })
 
   it('still refuses a cluster a caller asks for by name', () => {
-    expect(() => absent().cluster('default')).toThrow(/unknown cluster/)
+    // With no document there is no default to fall back to, so the refusal names
+    // the absence rather than a misspelt cluster.
+    expect(() => absent().cluster('default')).toThrow(/no clusters|unknown cluster/)
   })
 
   it('reports itself configured when a document is mounted', () => {

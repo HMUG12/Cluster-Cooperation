@@ -8,7 +8,7 @@
  * @module @deepseek-ai/dsh-cluster-config
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -104,7 +104,11 @@ export class ClusterConfig extends Service {
    * @returns true when the document file exists.
    */
   get configured(): boolean {
-    return this.document !== undefined || !this.absent
+    if (this.document !== undefined) return !this.absent
+    // Before any read, the answer is the file's existence: a caller asking "is
+    // this layer configured" must not be told yes by a service that has not
+    // looked yet.
+    return existsSync(this.source)
   }
 
   constructor(ctx: Context, config: Config) {
