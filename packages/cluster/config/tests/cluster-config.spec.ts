@@ -109,6 +109,24 @@ describe('editing the document as text', () => {
     expect(Object.keys(starter.models)).toEqual([])
   })
 
+  it('serialises for editing with the same formatter that writes, and starts from the starter', () => {
+    const { service } = empty()
+    const starterText = service.editableText()
+    expect(service.configured).toBe(false)
+    expect(starterText).toContain('topology: star')
+    expect(starterText).toContain('name: worker')
+    // The round trip a user actually performs: save what the panel showed, then
+    // save what the panel shows next, without either failing.
+    expect(() => service.saveText(starterText)).not.toThrow()
+    expect(service.configured).toBe(true)
+    expect(() => service.saveText(service.editableText())).not.toThrow()
+    // Saving an unchanged document changes nothing: the text the panel shows
+    // settles after one save instead of shifting under the user on every save.
+    const settled = service.editableText()
+    expect(() => service.saveText(settled)).not.toThrow()
+    expect(service.editableText()).toBe(settled)
+  })
+
   it('reads an absent document as empty rather than failing the caller', () => {
     const { service } = empty()
     expect(service.currentDocument().clusters).toEqual({})

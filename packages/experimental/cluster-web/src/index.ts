@@ -23,10 +23,9 @@ interface ClusterConfigSource {
   defaultClusterName(): string
   /** Whether a document exists. Present on services that report it. */
   readonly configured?: boolean
-  /** Read the document to edit, or a starter to begin from. */
-  currentDocument?(): unknown
-  /** Build the document a first-time user starts from. */
-  starter?(): unknown  /** Parse, validate and write candidate document text. */
+  /** Read the document as the text a surface edits. */
+  editableText?(): string
+  /** Parse, validate and write candidate document text. */
   saveText?(text: string): unknown
 }
 
@@ -101,27 +100,31 @@ export class ClusterWeb extends TypertRemoteService {
   /**
    * Read the document a settings surface edits.
    *
-   * An unconfigured cluster reads as a starter rather than as nothing, because
-   * the panel's job in that state is to hand the user something to edit; whether
-   * a file already exists travels alongside it, so the surface can say so instead
-   * of implying an empty document was loaded from disk.
+   * The text is produced by the service that owns the document, for the same
+   * reason the write is parsed there: a client that formatted or parsed on its own
+   * would hold a second opinion about the same file. An unconfigured cluster
+   * reads as the starter rather than as nothing, because the panel's job in that
+   * state is to hand the user something to edit; whether a file already exists
+   * travels alongside it, so the surface can say so instead of implying an empty
+   * document was loaded from disk.
    * @param agent - exact live Team member used as the authority credential.
-   * @returns whether a document exists, and the document to edit.
+   * @returns whether a document exists, and the text to edit.
    * @throws Error when the caller is not a cluster member or no service is mounted.
    */
   @Remote('readConfiguration')
-  remoteReadConfiguration(agent: Agent): { configured: boolean; document: unknown } {
+  remoteReadConfiguration(agent: Agent): { configured: boolean; text: string } {
     this.requireMember(agent)
     const source = this.lookup<ClusterConfigSource>('clusterConfig')
     if (source === undefined) {
       throw new Error('no cluster configuration service is mounted, so there is nothing to read or write')
     }
-    const configured = source.configured ?? false
-    // A service that predates these readers still answers the declaration
-    // questions this package depends on, so it reports nothing to edit rather
-    // than refusing the panel outright.
-    if (configured) return { configured, document: source.currentDocument?.call(source) }
-    return { configured, document: source.starter?.call(source) }
+    // A service that predates this reader still answers the declaration questions
+    // this package depends on, so it reports that it cannot edit rather than
+    // refusing the panel outright.
+    if (source.editableText === undefined) {
+      throw new Error('this cluster configuration service cannot produce document text, so a panel cannot edit it')
+    }
+    return { configured: source.configured ?? false, text: source.editableText.call(source) }
   }
 
   /**

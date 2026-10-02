@@ -267,12 +267,39 @@ export class ClusterConfig extends Service {
   }
 
   /**
+   * Read the document as the text a surface edits.
+   *
+   * A configured cluster reads as the file's own text rather than as a
+   * re-serialisation of the reading, because the reading cannot be written back:
+   * a cluster's name is carried by its key rather than spelled out, so a surface
+   * that showed the reading would hand the user text this service rejects. An
+   * unconfigured cluster reads as the starter, so a first-time user is handed
+   * something to edit rather than an empty box.
+   * @returns the file's text, or the starter's when no document exists.
+   */
+  editableText(): string {
+    return this.configured ? readFileSync(this.source, 'utf8') : this.starterText()
+  }
+
+  /**
+   * Render the starter as the text it is written as.
+   * @returns YAML text naming the configured default cluster.
+   */
+  starterText(): string {
+    return stringify(this.starterShape())
+  }
+
+  /**
    * Validate text and write it, so a surface can edit the document as text.
    *
    * The text is parsed here rather than in the client because this service owns
    * both the only parser and the only schema: a caller that parsed on its own
    * would either accept what this repository rejects or reject what it accepts,
    * and the two failures would look the same to a user.
+   *
+   * The file is rewritten in this service's own formatting, so comments and hand
+   * layout do not survive a save; what does survive is every declared field, and
+   * saving an unchanged document changes nothing at all.
    * @param text - candidate document text, in YAML or JSON.
    * @returns the validated document.
    * @throws ClusterConfigError when a field is rejected.
@@ -292,22 +319,25 @@ export class ClusterConfig extends Service {
    * @returns a valid document naming the configured default cluster.
    */
   starter(): ClusterDocument {
+    // Built through the reader so the result is a document this service accepts.
+    return readClusterDocument(this.starterShape(), 'starter')
+  }
+
+  /**
+   * The starter as a document is written, before any reading fills anything in.
+   * @returns the file-shaped literal, without the names a reading supplies.
+   */
+  private starterShape(): unknown {
     // The operator's own name when they declared one, and a plain structural key
     // otherwise: an absent default is not a reason to refuse to hand out a
     // starting point, and the key is an identifier rather than copy.
     const name = this.forced ?? 'cluster'
-    // Built through the reader so the result is a document this service accepts:
-    // a cluster's name is carried by its key in the file and filled in by the
-    // reading, so writing one here would be rejected as an unknown field.
-    return readClusterDocument(
-      {
-        version: CLUSTER_DOCUMENT_VERSION,
-        models: {},
-        defaultCluster: name,
-        clusters: { [name]: { topology: 'star', lead: {}, members: [{ name: 'worker', context: 'fresh' }] } },
-      },
-      'starter',
-    )
+    return {
+      version: CLUSTER_DOCUMENT_VERSION,
+      models: {},
+      defaultCluster: name,
+      clusters: { [name]: { topology: 'star', lead: {}, members: [{ name: 'worker', context: 'fresh' }] } },
+    }
   }
 
   /**
