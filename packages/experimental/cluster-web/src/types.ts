@@ -73,6 +73,11 @@ export interface ClusterOverviewCounts {
 
 /** The whole read-only cluster view. */
 export interface ClusterOverview {
+  /**
+   * Whether the composition has a cluster document. A panel gates starting a
+   * cluster session on this, and a settings surface reports it.
+   */
+  readonly configured: boolean
   /** Cluster the declarations name, when one is declared. */
   readonly clusterName?: string
   /** Roster, Lead first. */
@@ -93,6 +98,11 @@ export interface ClusterOverviewInput {
   readonly view: TeamView
   /** Folded spend rows, when the composition folds any. */
   readonly spend?: readonly ClusterSpendRow[]
+  /**
+   * Whether a cluster document is configured. Absent means the composition
+   * publishes no configuration service, which cannot be a reason to block.
+   */
+  readonly configured?: boolean
   /**
    * Classifies a subject line, when the composition publishes the protocol
    * vocabulary. Absent means the view reports no kinds rather than guessing one.

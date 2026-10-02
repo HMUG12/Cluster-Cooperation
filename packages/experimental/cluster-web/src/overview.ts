@@ -53,6 +53,10 @@ export function clusterOverview(input: ClusterOverviewInput): ClusterOverview {
     }))
   return {
     ...input.clusterName === undefined ? {} : { clusterName: input.clusterName },
+    // Carried through rather than derived: only the configuration service knows
+    // whether a document exists, and a panel that guesses would either block a
+    // working cluster or start an unconfigured one.
+    configured: input.configured ?? true,
     members,
     tasks,
     spend: input.spend ?? [],

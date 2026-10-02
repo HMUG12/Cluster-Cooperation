@@ -21,6 +21,8 @@ import type { ClusterOverview, ClusterSpendRow } from './types.ts'
 /** Structural view of the optional cluster declaration service. */
 interface ClusterNameSource {
   defaultClusterName(): string
+  /** Whether a document exists. Present on services that report it. */
+  readonly configured?: boolean
 }
 
 /** Structural view of the optional folded-spend view. */
@@ -49,8 +51,12 @@ export class ClusterWeb extends TypertRemoteService {
   remoteOverview(agent: Agent): ClusterOverview {
     const clusterName = this.clusterName()
     const classify = this.classify()
+    const configured = this.lookup<ClusterNameSource>('clusterConfig')?.configured
     return clusterOverview({
       ...clusterName === undefined ? {} : { clusterName },
+      // Absent means the service predates the flag or is not mounted; a panel
+      // must not block a cluster it cannot get an answer about.
+      ...configured === undefined ? {} : { configured },
       view: {
         members: this.ctx.agentTeams.listMembers(agent),
         tasks: this.ctx.agentTeams.listTasks(agent),
