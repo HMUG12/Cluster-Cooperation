@@ -30,6 +30,12 @@ interface ClusterSpendSource {
   members(): readonly ClusterSpendRow[]
 }
 
+/** Structural view of the configuration service when it can also write. */
+interface ClusterWriterSource {
+  /** Validate and write a candidate document, as the schema-owning service does. */
+  save(document: unknown): unknown
+}
+
 /** Cluster overview service consumed by the Web panel. */
 export class ClusterWeb extends TypertRemoteService {
   static inject = ['agentTeams']
@@ -64,6 +70,30 @@ export class ClusterWeb extends TypertRemoteService {
       spend: this.spend() ?? [],
       ...classify === undefined ? {} : { classify },
     })
+  }
+
+  /**
+   * Write a cluster document through the generated Remote API.
+   *
+   * The candidate is validated by the service that owns the schema, so a document
+   * with a rejected field never reaches the disk and the caller learns which field
+   * failed. Authority is the same as for reading: the caller must be a live member
+   * of a cluster, and a composition with no configuration service mounted says so
+   * rather than pretending something was saved.
+   * @param agent - exact live Team member used as the authority credential.
+   * @param document - candidate cluster document, validated before it is written.
+   * @returns the validated document as it was written.
+   */
+  @Remote('saveConfiguration')
+  remoteSaveConfiguration(agent: Agent, document: unknown): unknown {
+    if (this.ctx.agentTeams.listMembers(agent).length === 0) {
+      throw new Error(`session ${agent.id} belongs to no cluster, so it cannot configure one`)
+    }
+    const source = this.lookup<ClusterWriterSource>('clusterConfig')
+    if (source === undefined) {
+      throw new Error('no cluster configuration service is mounted, so there is nothing to write')
+    }
+    return source.save(document)
   }
 
   /** Read the declared cluster name, when a composition mounts the declarations. */
