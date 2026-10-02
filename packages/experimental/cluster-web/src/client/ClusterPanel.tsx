@@ -89,6 +89,7 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
             ? <p role="status">{loading ? t('loading') : error ?? ''}</p>
             : (
               <>
+                <p data-cluster-title="">{content.title}</p>
                 <p data-cluster-summary="">{content.summary.join('')}</p>
                 {content.sections.map(section => (
                   <div key={section.key} data-cluster-section={section.key}>
