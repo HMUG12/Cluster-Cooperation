@@ -92,6 +92,21 @@ export class ClusterConfig extends Service {
   private readonly source: string
   private readonly forced: string | undefined
 
+  /** True once a read found no document file, so every lookup answers "nothing declared". */
+  private absent = false
+
+  /**
+   * Whether a document file was found at {@link filePath}.
+   *
+   * This is the gate a caller checks before offering cluster behaviour: the layer
+   * is opt-in, so an absent document is a state a caller can report, not a
+   * failure that ends its caller's session.
+   * @returns true when the document file exists.
+   */
+  get configured(): boolean {
+    return this.document !== undefined || !this.absent
+  }
+
   constructor(ctx: Context, config: Config) {
     super(ctx, 'clusterConfig')
     this.source = resolveSource(config.file)
@@ -106,7 +121,18 @@ export class ClusterConfig extends Service {
   /** Read and validate the document, caching it for the service lifetime. */
   private loaded(): ClusterDocument {
     if (this.document !== undefined) return this.document
-    const raw = readFileSync(this.source, 'utf8')
+    let raw: string
+    try {
+      raw = readFileSync(this.source, 'utf8')
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'ENOENT') throw error
+      // A missing document is the unconfigured state, not a failure. Routing and
+      // briefing read this service while a session is being created, so throwing
+      // here would end every session that has not been given a document yet.
+      this.absent = true
+      this.document = { version: 1, clusters: {} } as ClusterDocument
+      return this.document
+    }
     this.document = readClusterDocument(parse(raw), this.source)
     return this.document
   }
@@ -124,7 +150,8 @@ export class ClusterConfig extends Service {
     }
     if (document.defaultCluster !== undefined) return document.defaultCluster
     const names = Object.keys(document.clusters)
-    /* v8 ignore next -- a document with a rejected empty cluster map cannot reach here. */
+    // Reachable when the service is unconfigured: an absent document declares no
+    // clusters, and only a caller that asks for one by name reaches this line.
     if (names.length === 0) throw new Error('cluster document declares no clusters')
     return names[0] as string
   }
@@ -158,6 +185,8 @@ export class ClusterConfig extends Service {
    * @returns the configured selection, or undefined when the member declares no route.
    */
   routeFor(clusterName: string, memberName: string): ModelSelection | undefined {
+    // An unconfigured service routes nothing rather than refusing the session.
+    if (!this.configured) return undefined
     const cluster = this.cluster(clusterName)
     if (memberName === 'lead') return cluster.lead.route === undefined ? undefined : selection(cluster.lead.route)
     const member = cluster.members.find(entry => entry.name === memberName)
@@ -171,6 +200,7 @@ export class ClusterConfig extends Service {
    * @returns configured fallbacks, empty when none are declared.
    */
   fallbacksFor(clusterName: string, memberName: string): ModelSelection[] {
+    if (!this.configured) return []
     const cluster = this.cluster(clusterName)
     const routes = memberName === 'lead' ? cluster.lead.fallback : cluster.members.find(entry => entry.name === memberName)?.fallback
     return (routes ?? []).map(selection)
@@ -183,6 +213,7 @@ export class ClusterConfig extends Service {
    * @returns the briefing text, or undefined when the member declares none.
    */
   briefingFor(clusterName: string, memberName: string): string | undefined {
+    if (!this.configured) return undefined
     const member = this.member(clusterName, memberName)
     if (member === undefined) return undefined
     return renderBriefing({ clusterName, member })
@@ -195,6 +226,7 @@ export class ClusterConfig extends Service {
    * @returns the declared budget, or undefined when the member declares none.
    */
   budgetFor(clusterName: string, memberName: string): number | undefined {
+    if (!this.configured) return undefined
     return this.member(clusterName, memberName)?.tokenBudget
   }
 

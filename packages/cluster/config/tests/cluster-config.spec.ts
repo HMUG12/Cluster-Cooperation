@@ -19,6 +19,36 @@ function mount(document: string): ClusterConfig {
   return new ClusterConfig(new Context(), { file })
 }
 
+describe('unconfigured service', () => {
+  /** Mount the service on a path where no document exists. */
+  function absent(): ClusterConfig {
+    const directory = mkdtempSync(join(tmpdir(), 'cluster-config-absent-'))
+    return new ClusterConfig(new Context(), { file: join(directory, 'cluster.yml') })
+  }
+
+  it('reports itself unconfigured instead of failing the caller', () => {
+    expect(absent().configured).toBe(false)
+  })
+
+  it('routes and briefs nothing when no document exists', () => {
+    // Routing and briefing read this service while a session is being created, so
+    // a missing document must answer "nothing declared" rather than end the session.
+    const service = absent()
+    expect(service.routeFor('default', 'coder')).toBeUndefined()
+    expect(service.fallbacksFor('default', 'coder')).toEqual([])
+    expect(service.briefingFor('default', 'coder')).toBeUndefined()
+    expect(service.budgetFor('default', 'coder')).toBeUndefined()
+  })
+
+  it('still refuses a cluster a caller asks for by name', () => {
+    expect(() => absent().cluster('default')).toThrow(/unknown cluster/)
+  })
+
+  it('reports itself configured when a document is mounted', () => {
+    expect(new ClusterConfig(new Context(), { file: example }).configured).toBe(true)
+  })
+})
+
 describe('cluster document reader', () => {
   it('resolves alias routes and inline routes', () => {
     const document = readClusterDocument({
