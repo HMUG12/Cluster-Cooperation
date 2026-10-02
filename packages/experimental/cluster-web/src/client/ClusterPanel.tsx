@@ -17,6 +17,7 @@ import type { ClusterOverview } from '../types.ts'
 import { clusterPanel } from './panel.ts'
 import { NS } from './locales.ts'
 import css from './ClusterPanel.module.css'
+import { IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Business action injected by the browser plugin. */
 export interface ClusterPanelInjected {
@@ -118,6 +119,7 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
                   </div>
                 ))}
                 <button type="button" disabled={loading} onClick={() => { void refresh() }}>
+                  <IconRefreshOutline14 size={14} />
                   {t('refresh')}
                 </button>
               </>
