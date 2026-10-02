@@ -16,6 +16,7 @@ kind: "package-reference"
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
 - [进一步探索](#further-exploration)
+- [模型体验](#model-experience)
 - [已知限制与未完成事项](#known-limitations-and-deferred-work)
 - [开发说明](#dev-note)
 
@@ -69,20 +70,29 @@ kind: "package-reference"
 
 -----
 
+<a id="model-experience"></a>
+## 模型体验
+
+没有，因为视图读取的是集群已经发布的服务，不添加任何模型能看到的内容。
+
+#### KV Cache 影响
+
+本包不添加任何模型请求内容；Prompt、Schema 与缓存影响由集群工具拥有。
+
 <a id="known-limitations-and-deferred-work"></a>
 ## 已知限制与未完成事项
 
 - 未发布运行时不变式伴随包：本视图是三个输入的纯函数，而这三个输入已由拥有它们的那些包各自断言过。
-- **目前还没有东西渲染它** — 载荷以生成的 Remote 方法送到浏览器，消费它的 Web 面板是下一步。在那之前，服务是挂着的、可读的，但没有页面调用它。
+- **面板需要那一层实验性 Web 层** — Host 服务由 `cluster-bundle` 挂载，而会话头部动作只有在把 [`cluster-web-profile`](../cluster-web-profile/README.zh.md) 加入某个 Web profile 后才会出现。
 - **声明是概述而非清单** — 视图报告声明的集群名与每个成员的路由模型，但不给整份 `cluster.yml`：每个成员的路由清单本身就是一块面板，而那份文档已经有读者了。
 - **花费只覆盖已经花过的成员** — 编排器的折叠在成员第一次模型调用之前没有行，因此视图列出的是它折叠到的，而不是整个花名册。
-- **还没有 profile 挂载这个面板** — 浏览器入口会挂载它自己生成的 Remote 命名空间并注册会话头部动作，但没有任何 profile 列出这个包，因此在 `dsh web` 里要等某个 profile 加上它才会显示。
+- **这个动作读取的是调用会话所属的集群** — 子代理会话不会回溯到它的 Lead，因此 teammate 自己的会话读到的是它自己身份所属的集群，而不是 Lead 的。
 - **协议词汇是跨服务边界读取的，不是导入的** — 分类器与它所读的主题前缀同住在 `tool-cluster` 里，并以 `ctx.clusterProtocols` 发布：跨工作区包的**值**导入在本仓的测试解析下不成立，而结构性读取成立 ✓。没有组合发布该词汇时，行上**一个类别也没有**，而不是猜一个。
 
 -----
 
 <a id="dev-note"></a>
-## 开发说明
+### 开发说明
 
 <details>
 <summary>维护者工作上下文——点击展开</summary>

@@ -45,6 +45,8 @@ const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
  */
 const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/experimental/cluster-command': { kind: 'none', reason: 'The command reads the roster and the shared board in the command plane and writes nothing a model reads.' },
+  'packages/experimental/cluster-web': { kind: 'none', reason: 'The overview reads services the cluster already published and hands them to a browser; it adds no model request content.' },
+  'packages/experimental/cluster-web-profile': { kind: 'indirect', reason: 'The patch mounts the cluster panel in a Web profile; the Host-side tools and the orchestrator own every model-facing effect.' },
   'packages/api/terminal-controller': { kind: 'none', reason: 'User-owned terminal processes and screen streams never enter model requests or Session events.' },
   'packages/client/ui-sidebar-terminal': { kind: 'none', reason: 'The browser renders user terminal screens without exposing them to the model.' },
   'packages/ssh/ssh': { kind: 'none', reason: 'The connection owner transports private provider operations; consumers own all model-facing content.' },

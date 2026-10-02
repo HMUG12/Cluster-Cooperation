@@ -139,7 +139,7 @@ Append-only everywhere: every notice lands after the reusable request prefix, so
 -----
 
 <a id="dev-note"></a>
-## Dev Note
+### Dev Note
 
 <details>
 <summary>Working context for maintainers — click to expand</summary>

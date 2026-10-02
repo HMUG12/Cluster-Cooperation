@@ -139,7 +139,7 @@ Lead 历史里多一次工具调用与一条 JSON 结果；开局轮每位辩手
 -----
 
 <a id="dev-note"></a>
-## 开发说明
+### 开发说明
 
 <details>
 <summary>维护者工作上下文——点击展开</summary>

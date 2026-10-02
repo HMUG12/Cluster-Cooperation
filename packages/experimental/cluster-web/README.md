@@ -16,6 +16,7 @@ This package crosses the cluster to the browser in one shape: a single generated
 - [Use this package](#use-this-package)
 - [Understand the implementation](#understand-the-implementation)
 - [Further Exploration](#further-exploration)
+- [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
 
@@ -69,20 +70,29 @@ Spend is optional in the payload: a composition that folds no usage simply repor
 
 -----
 
+<a id="model-experience"></a>
+## Model Experience
+
+None, as the view reads services the cluster already publishes and adds no content a model sees.
+
+#### KV Cache effect
+
+This package adds no model request content; the cluster tools own prompt, schema, and cache effects.
+
 <a id="known-limitations-and-deferred-work"></a>
 ## Known Limitations and Deferred Work
 
 - No runtime invariant companion is published because the view is a pure function of three inputs, and those inputs are already asserted by the packages that own them.
-- **Nothing renders this yet** — the payload crosses to the browser as a generated Remote method, and the Web panel that consumes it is the next step. Until then the service is mounted and readable, and no page calls it.
+- **The panel needs the experimental Web layer** — the Host service is mounted by `cluster-bundle`, and the header action appears only when [`cluster-web-profile`](../cluster-web-profile/README.md) is added to a Web profile.
 - **The declarations are summarised, not listed** — the view reports the declared cluster name and each member's routed model, but not the full `cluster.yml`: a route list per member is a panel of its own, and the document already has a reader.
 - **Spend covers the members that have spent** — the orchestrator's fold has no row before a member's first model call, so the view lists what it folded rather than the whole roster.
-- **No profile mounts the panel yet** — the browser entry mounts its own generated Remote namespace and registers the header action, but no profile lists this bundle, so a `dsh web` session shows nothing until one does.
+- **The action reads the invoking session's cluster** — a subagent session is not resolved to its Lead, so a teammate's own conversation reads the cluster its own identity belongs to rather than the Lead's.
 - **The protocol vocabulary is read across the service boundary, not imported** — the classifier lives with the prefixes it reads inside `tool-cluster` and is published as `ctx.clusterProtocols`, because a value import of another workspace package does not resolve in this repository's test resolution while a structural read does. A composition that publishes no vocabulary gets rows with no kind at all, rather than a guess.
 
 -----
 
 <a id="dev-note"></a>
-## Dev Note
+### Dev Note
 
 <details>
 <summary>Working context for maintainers — click to expand</summary>

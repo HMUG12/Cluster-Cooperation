@@ -1,0 +1,6 @@
+# Experimental cluster Web layer. Apply after dsh-web-app and the host-side
+# cluster-bundle so the browser panel mounts only when the cluster service is present.
+
+- insert:
+    - id: ui-cluster
+      name: '@deepseek-ai/dsh-experimental-cluster-web'
