@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package gives a Team Lead four ways to put one question to the whole team at once: a durable broadcast, a roundtable whose synthesis is collected by one member, a motion counted by one member, and a debate weighed by a judge. Each is a fan-out the Lead could not express with `team_task_create` alone, because the board closes it: every participant owns a row, and the collector task blocks on exactly those rows, so the ordinary release path wakes the collector and carries the count or the verdict it reads. The tools belong to the Lead only, and a composition that mounts no tool runtime simply gets none.
+This package gives a Team Lead four ways to put one question to the whole team: a durable broadcast, a roundtable whose synthesis one member collects, a motion one member counts, and a debate a judge weighs. Each is a fan-out the Lead could not express with `team_task_create` alone, because the board closes it: every participant owns a row, and the collector task blocks on exactly those rows, so the ordinary release path wakes the collector with the count or verdict it reads. The tools belong to the Lead only, and a composition that mounts no tool runtime gets none.
 
 ## Table of Contents
 

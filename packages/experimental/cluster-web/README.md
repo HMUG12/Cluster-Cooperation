@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package crosses the cluster to the browser in one shape: a single generated Remote method that returns the roster, the board, the counts over it, and the folded spend — already ordered and already counted. The derivation lives here rather than in the panel because a client bundle may not import another plugin's values, so anything the panel would have to work out for itself is a thing it cannot work out at all. The declared cluster name and the spend are read structurally, exactly as the `/cluster` command reads them, so this service loads whether or not those packages are mounted.
+This package crosses the cluster to the browser in one shape: a single generated Remote method returning the roster, the board, its counts, and the folded spend, already ordered and counted. The derivation lives here rather than in the panel because a client bundle may not import another plugin's values, so anything the panel would work out for itself is something it cannot work out at all. The declared name and the spend are read structurally, as the `/cluster` command reads them, so this service loads whether or not those packages are mounted.
 
 ## Table of Contents
 

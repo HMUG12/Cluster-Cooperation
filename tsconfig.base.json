@@ -294,6 +294,7 @@
       // Agent-Team-facing half lives under packages/experimental/ and keeps the family prefix.
       "@deepseek-ai/dsh-experimental-cluster-bundle": ["./packages/experimental/cluster-bundle/src"],
       "@deepseek-ai/dsh-experimental-cluster-command": ["./packages/experimental/cluster-command/src"],
+      "@deepseek-ai/dsh-experimental-cluster-web-profile": ["./packages/experimental/cluster-web-profile/src"],
       "@deepseek-ai/dsh-cluster-config": ["./packages/cluster/config/src"],
       "@deepseek-ai/dsh-experimental-cluster-orchestrator": ["./packages/experimental/cluster-orchestrator/src"],
       "@deepseek-ai/dsh-experimental-cluster-router": ["./packages/experimental/cluster-router/src"],
