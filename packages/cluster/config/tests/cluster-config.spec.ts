@@ -1,6 +1,6 @@
 /** The cluster document reader and the route lookups built on it. */
 
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +18,38 @@ function mount(document: string): ClusterConfig {
   writeFileSync(file, document)
   return new ClusterConfig(new Context(), { file })
 }
+
+describe('saving a document', () => {
+  /** Mount the service on an empty directory and hand back both. */
+  function empty(): { service: ClusterConfig; file: string } {
+    const directory = mkdtempSync(join(tmpdir(), 'cluster-config-save-'))
+    const file = join(directory, 'cluster.yml')
+    return { service: new ClusterConfig(new Context(), { file }), file }
+  }
+
+  const minimal = { version: 1, clusters: { default: { lead: {}, members: [{ name: 'coder' }] } } }
+
+  it('creates the document, which is the only way a cluster can be configured at all', () => {
+    const { service, file } = empty()
+    expect(service.configured).toBe(false)
+    service.save(minimal)
+    expect(service.configured).toBe(true)
+    expect(readFileSync(file, 'utf8')).toContain('coder')
+  })
+
+  it('rejects an invalid document and leaves the file untouched', () => {
+    const { service, file } = empty()
+    expect(() => service.save({ version: 1, clusters: { default: { topology: 'nonsense' } } })).toThrow()
+    expect(existsSync(file)).toBe(false)
+  })
+
+  it('serves what it wrote rather than the reading it cached before the write', () => {
+    const { service } = empty()
+    service.save(minimal)
+    service.save({ version: 1, clusters: { other: { lead: {}, members: [] } } })
+    expect(service.defaultClusterName()).toBe('other')
+  })
+})
 
 describe('unconfigured service', () => {
   /** Mount the service on a path where no document exists. */

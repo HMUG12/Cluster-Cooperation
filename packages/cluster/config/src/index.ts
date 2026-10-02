@@ -8,13 +8,13 @@
  * @module @deepseek-ai/dsh-cluster-config
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import { parse } from 'yaml'
+import { parse, stringify } from 'yaml'
 import { renderBriefing } from './briefing.ts'
 import { readClusterDocument } from './document.ts'
 import type { ClusterDocument, ClusterSpec, MemberSpec, ReviewSpec, RouteSpec } from './types.ts'
@@ -232,6 +232,25 @@ export class ClusterConfig extends Service {
   budgetFor(clusterName: string, memberName: string): number | undefined {
     if (!this.configured) return undefined
     return this.member(clusterName, memberName)?.tokenBudget
+  }
+
+  /**
+   * Validate a document and write it, so a user can change the cluster at all.
+   *
+   * This is the only path that creates the file, so it goes through the same
+   * reader every load uses: a document with a rejected field never reaches the
+   * disk, and the caller learns which fields failed. The caller's own text is
+   * written rather than the expanded reading, so a named route stays named.
+   * @param document - candidate document, validated before anything is written.
+   * @returns the validated document.
+   * @throws ClusterConfigError when a field is rejected.
+   */
+  save(document: unknown): ClusterDocument {
+    const validated = readClusterDocument(document, this.source)
+    writeFileSync(this.source, stringify(document), 'utf8')
+    this.document = validated
+    this.absent = false
+    return validated
   }
 
   /**
