@@ -41,6 +41,11 @@ export interface PanelSection {
 export interface ClusterPanel {
   /** Panel title. */
   readonly title: string
+  /**
+   * Set when the composition has no cluster document, so a panel states why the
+   * cluster is empty instead of showing empty sections as if nothing were wrong.
+   */
+  readonly unconfigured?: string
   /** Counts line, then the protocol line when the view carries kinds. */
   readonly summary: readonly string[]
   /** Roster, board, and spend, in that order. */
@@ -93,6 +98,7 @@ export function clusterPanel(overview: ClusterOverview, t: (key: ClusterKey) => 
   const spend: readonly ClusterSpendRow[] = overview.spend
   return {
     title: overview.clusterName === undefined ? t('title') : `${t('title')} · ${overview.clusterName}`,
+    ...overview.configured ? {} : { unconfigured: t('unconfigured') },
     summary,
     sections: [
       {
