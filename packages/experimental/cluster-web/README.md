@@ -84,7 +84,7 @@ This package adds no model request content; the cluster tools own prompt, schema
 <a id="known-limitations-and-deferred-work"></a>
 
 - No runtime invariant companion is published because the view is a pure function of three inputs, and those inputs are already asserted by the packages that own them.
-- **The panel needs the experimental Web layer** — the Host service is mounted by `cluster-bundle`, and the header action appears only when [`cluster-web-profile`](../cluster-web-profile/README.md) is added to a Web profile.
+- **A web session needs the cluster profile, not a separate web layer** — the Host service and the browser entry are one row in `cluster-bundle`, so applying that profile to a web session is what makes the header action appear. [`cluster-web-profile`](../cluster-web-profile/README.md) is deliberately empty: inserting this package again would register `clusterWeb` twice, which the loader refuses at boot.
 - **The declarations are summarised, not listed** — the view reports the declared cluster name and each member's routed model, but not the full `cluster.yml`: a route list per member is a panel of its own, and the document already has a reader.
 - **Spend covers the members that have spent** — the orchestrator's fold has no row before a member's first model call, so the view lists what it folded rather than the whole roster.
 - **The action reads the invoking session's cluster** — a subagent session is not resolved to its Lead, so a teammate's own conversation reads the cluster its own identity belongs to rather than the Lead's.

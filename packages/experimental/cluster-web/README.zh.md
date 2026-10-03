@@ -84,7 +84,7 @@ kind: "package-reference"
 <a id="known-limitations-and-deferred-work"></a>
 
 - 未发布运行时不变式伴随包：本视图是三个输入的纯函数，而这三个输入已由拥有它们的那些包各自断言过。
-- **面板需要那一层实验性 Web 层** — Host 服务由 `cluster-bundle` 挂载，而会话头部动作只有在把 [`cluster-web-profile`](../cluster-web-profile/README.zh.md) 加入某个 Web profile 后才会出现。
+- **Web 会话需要的是集群 profile，而不是另一层** — Host 服务与浏览器入口是 `cluster-bundle` 里的**同一行**，所以把这个 profile 用到 Web 会话上，会话头部动作才会出现。[`cluster-web-profile`](../cluster-web-profile/README.zh.md) 是**故意留空的**：再插一次本包会把 `clusterWeb` 注册两遍，而加载器在启动时就会拒绝。
 - **声明是概述而非清单** — 视图报告声明的集群名与每个成员的路由模型，但不给整份 `cluster.yml`：每个成员的路由清单本身就是一块面板，而那份文档已经有读者了。
 - **花费只覆盖已经花过的成员** — 编排器的折叠在成员第一次模型调用之前没有行，因此视图列出的是它折叠到的，而不是整个花名册。
 - **这个动作读取的是调用会话所属的集群** — 子代理会话不会回溯到它的 Lead，因此 teammate 自己的会话读到的是它自己身份所属的集群，而不是 Lead 的。
