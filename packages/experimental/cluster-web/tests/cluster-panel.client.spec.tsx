@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import { ClusterPanel } from '../src/client/ClusterPanel.tsx'
+import { ClusterPanel, type ClusterConfiguration, type ClusterSaveResult } from '../src/client/ClusterPanel.tsx'
 import { zh, type ClusterKey } from '../src/client/locales.ts'
 import type { ClusterOverview } from '../src/types.ts'
 
@@ -36,10 +36,29 @@ function read(): ClusterOverview {
   }
 }
 
-/** The framework supplies `sessionId` and the translator; only the reader is ours. */
-function panel(load: (sessionId: SessionId) => Promise<RemoteResult<ClusterOverview>>) {
-  const props = { sessionId: SESSION, load, t } as unknown as Parameters<typeof ClusterPanel>[0]
+/** A call the case did not supply, so an unexpected one fails loudly. */
+function absent(code: string): never {
+  throw new Error(`unexpected remote call: ${code}`)
+}
+
+/** The framework supplies `sessionId` and the translator; only the calls are ours. */
+function panel(
+  load: (sessionId: SessionId) => Promise<RemoteResult<ClusterOverview>>,
+  document: {
+    read?: () => Promise<RemoteResult<ClusterConfiguration>>
+    save?: (text: string) => Promise<RemoteResult<ClusterSaveResult>>
+  } = {},
+) {
+  const readConfiguration = () => document.read?.() ?? absent('readConfiguration')
+  const saveConfiguration = (_sessionId: SessionId, text: string) => document.save?.(text) ?? absent('saveConfiguration')
+  const props = { sessionId: SESSION, load, readConfiguration, saveConfiguration, t } as unknown as Parameters<typeof ClusterPanel>[0]
   return render(<ClusterPanel {...props} />)
+}
+
+/** Open the panel, which is the only thing that triggers a read. */
+async function openPanel(): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: '集群' }))
+  await screen.findByText('成员')
 }
 
 // This workspace imports vitest explicitly, so Testing Library's automatic
@@ -91,5 +110,52 @@ describe('ClusterPanel', () => {
     await screen.findByText('成员')
     fireEvent.click(screen.getByRole('button', { name: '刷新集群' }))
     expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  it('reads no document until the settings are opened', async () => {
+    const readDocument = vi.fn(() => Promise.resolve({ ok: true as const, value: { configured: true, text: 'version: 1\n' } }))
+    panel(() => Promise.resolve({ ok: true as const, value: read() }), { read: readDocument })
+    await openPanel()
+    expect(readDocument).not.toHaveBeenCalled()
+  })
+
+  it('shows the text the host formatted, and says a first document is not saved yet', async () => {
+    const text = 'version: 1\nclusters: {}\n'
+    panel(() => Promise.resolve({ ok: true as const, value: read() }), {
+      read: () => Promise.resolve({ ok: true as const, value: { configured: false, text } }),
+    })
+    await openPanel()
+    fireEvent.click(screen.getByRole('button', { name: '设置集群' }))
+    const area = await screen.findByLabelText('新集群文档（尚未保存）')
+    expect((area as HTMLTextAreaElement).value).toBe(text)
+  })
+
+  it('sends the edited text and reports the host reason when a save is refused', async () => {
+    const send = vi.fn((_text: string) => Promise.resolve({ ok: true as const, value: { saved: false, reason: 'clusters.crew.topology: unknown value' } as ClusterSaveResult }))
+    panel(() => Promise.resolve({ ok: true as const, value: read() }), {
+      read: () => Promise.resolve({ ok: true as const, value: { configured: true, text: 'version: 1\n' } }),
+      save: send,
+    })
+    await openPanel()
+    fireEvent.click(screen.getByRole('button', { name: '设置集群' }))
+    const area = await screen.findByLabelText('集群文档')
+    fireEvent.change(area, { target: { value: 'version: 2\n' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存文档' }))
+    expect(await screen.findByText('clusters.crew.topology: unknown value')).toBeDefined()
+    expect(send).toHaveBeenCalledWith('version: 2\n')
+  })
+
+  it('confirms a save that lands, and then treats the document as one that exists', async () => {
+    const send = vi.fn(() => Promise.resolve({ ok: true as const, value: { saved: true } as ClusterSaveResult }))
+    panel(() => Promise.resolve({ ok: true as const, value: read() }), {
+      read: () => Promise.resolve({ ok: true as const, value: { configured: false, text: 'version: 1\n' } }),
+      save: send,
+    })
+    await openPanel()
+    fireEvent.click(screen.getByRole('button', { name: '设置集群' }))
+    await screen.findByLabelText('新集群文档（尚未保存）')
+    fireEvent.click(screen.getByRole('button', { name: '保存文档' }))
+    expect(await screen.findByText('已保存')).toBeDefined()
+    expect(screen.getByLabelText('集群文档')).toBeDefined()
   })
 })

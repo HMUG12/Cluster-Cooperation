@@ -104,6 +104,20 @@
   white-space: nowrap;
 }
 
+.editor {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--dsh-border, rgb(128 128 128 / 25%));
+  border-radius: 6px;
+  background: var(--dsh-surface, Canvas);
+  color: inherit;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .unconfigured {
   margin: 0;
   padding: 8px 10px;

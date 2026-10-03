@@ -23,11 +23,26 @@ import { IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 export interface ClusterPanelInjected {
   /** Read the cluster the session belongs to. */
   load: (sessionId: SessionId) => Promise<RemoteResult<ClusterOverview>>
+  /** Read the document text a settings surface edits. */
+  readConfiguration: (sessionId: SessionId) => Promise<RemoteResult<ClusterConfiguration>>
+  /** Write edited document text, and report why when it is refused. */
+  saveConfiguration: (sessionId: SessionId, text: string) => Promise<RemoteResult<ClusterSaveResult>>
 }
 
 /** Full props of the cluster conversation-header action. */
 export type ClusterPanelProps =
   PropsRuntime<'conversation.session.header.actions'> & ClusterPanelInjected & PropsLocale<typeof NS>
+
+/** The document as the host formats it, plus whether a file already exists. */
+export interface ClusterConfiguration {
+  /** Whether a document was written before. */
+  readonly configured: boolean
+  /** YAML text to edit. */
+  readonly text: string
+}
+
+/** What a write attempt answered: written, or refused with a reason. */
+export type ClusterSaveResult = { readonly saved: true } | { readonly saved: false; readonly reason: string }
 
 /** One failure line: this seam keeps the code beside the message. */
 function failureText(error: { readonly code: string; readonly message: string }): string {
@@ -39,11 +54,16 @@ function failureText(error: { readonly code: string; readonly message: string })
  * @param props - framework-bound session identity, the injected reader, and the translator.
  * @returns the trigger, and the loaded panel once it is open.
  */
-export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
+export function ClusterPanel({ sessionId, load, readConfiguration, saveConfiguration, t }: ClusterPanelProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [view, setView] = useState<ClusterOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState('')
+  const [configured, setConfigured] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [outcome, setOutcome] = useState<string | null>(null)
   const sessionRef = useRef(sessionId)
   const generation = useRef(0)
   sessionRef.current = sessionId
@@ -54,6 +74,9 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
     setLoading(false)
     setView(null)
     setError(null)
+    setEditing(false)
+    setText('')
+    setOutcome(null)
   }, [sessionId])
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -70,6 +93,39 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
       setError(failureText(result.error))
     }
   }, [load, sessionId])
+
+  // The document is read when the editor is opened rather than with the view: a
+  // reader who only wants to look at the roster should not pull a document too.
+  const openEditor = useCallback(async (): Promise<void> => {
+    const requested = sessionId
+    const asked = ++generation.current
+    setEditing(true)
+    setOutcome(null)
+    const result = await readConfiguration(requested)
+    if (sessionRef.current !== requested || generation.current !== asked) return
+    if (result.ok) {
+      setText(result.value.text)
+      setConfigured(result.value.configured)
+    } else {
+      setOutcome(failureText(result.error))
+    }
+  }, [readConfiguration, sessionId])
+
+  const save = useCallback(async (): Promise<void> => {
+    const requested = sessionId
+    setSaving(true)
+    const result = await saveConfiguration(requested, text)
+    if (sessionRef.current !== requested) return
+    setSaving(false)
+    // A refused field is an answer, not a failure to report: the host's reason is
+    // the only thing that can say which field to fix.
+    if (!result.ok) {
+      setOutcome(failureText(result.error))
+      return
+    }
+    setOutcome(result.value.saved ? t('saved') : result.value.reason)
+    if (result.value.saved) setConfigured(true)
+  }, [saveConfiguration, sessionId, t, text])
 
   const content = useMemo(() => (view === null ? null : clusterPanel(view, t)), [view, t])
   return (
@@ -122,6 +178,25 @@ export function ClusterPanel({ sessionId, load, t }: ClusterPanelProps) {
                   <IconRefreshOutline14 size={14} />
                   {t('refresh')}
                 </button>
+                {editing
+                  ? (
+                    <div className={css.section} data-cluster-editor="">
+                      <h3 className={css.sectionTitle}>{configured ? t('document') : t('starter')}</h3>
+                      <textarea
+                        className={css.editor}
+                        data-cluster-document=""
+                        aria-label={configured ? t('document') : t('starter')}
+                        rows={12}
+                        value={text}
+                        onChange={(event) => { setText(event.target.value) }}
+                      />
+                      <button type="button" disabled={saving} onClick={() => { void save() }}>{t('save')}</button>
+                      {outcome === null ? null : <p className={css.status} role="status">{outcome}</p>}
+                    </div>
+                  )
+                  : (
+                    <button type="button" onClick={() => { void openEditor() }}>{t('settings')}</button>
+                  )}
               </>
             )}
         </section>
