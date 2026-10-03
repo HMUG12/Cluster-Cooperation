@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/cluster.md
-cluster.md: 11de87ccc9329ec64373926cb62199a7bab9c832
-cluster.zh.md: 32a9e01f26b404412cdd40441e5c2407ff3f5a3f
+cluster.md: 9ed22ac18fd7e64c2b1ca6d6a84af55f323171da
+cluster.zh.md: c24486347494a657f88af7312cf726482ed68dda

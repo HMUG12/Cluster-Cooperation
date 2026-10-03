@@ -279,6 +279,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   PluginInstallProgress: 'boot.md',
   BrowserUseProviderName: 'browser-use.md',
   ClusterSpec: 'cluster.md',
+  ClusterDocument: 'cluster.md',
   MemberSpec: 'cluster.md',
   ReviewSpec: 'cluster.md',
   ComputerUseProviderName: 'computer-use.md',

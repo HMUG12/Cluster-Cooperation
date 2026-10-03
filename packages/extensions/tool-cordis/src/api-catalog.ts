@@ -705,6 +705,44 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the declared budget, or undefined when the member declares none.',
       },
       {
+        signature: 'save(document: unknown): ClusterDocument',
+        description: 'Validate a document and write it, so a user can change the cluster at all.\n\nThis is the only path that creates the file, so it goes through the same reader every load uses: a document with a rejected field never reaches the disk, and the caller learns which fields failed. The caller\'s own text is written rather than the expanded reading, so a named route stays named.',
+        parameters: [{ name: 'document', description: 'candidate document, validated before anything is written.' }],
+        returns: 'the validated document.',
+        throws: ['ClusterConfigError when a field is rejected.'],
+      },
+      {
+        signature: 'currentDocument(): ClusterDocument',
+        description: 'Read the document a settings surface edits.\n\nAn absent document reads as the empty one rather than throwing, because a panel asking what to edit is exactly the case where no file exists yet; configured tells the two apart.',
+        parameters: [],
+        returns: 'the loaded document, empty when none has been written.',
+      },
+      {
+        signature: 'editableText(): string',
+        description: 'Read the document as the text a surface edits.\n\nA configured cluster reads as the file\'s own text rather than as a re-serialisation of the reading, because the reading cannot be written back: a cluster\'s name is carried by its key rather than spelled out, so a surface that showed the reading would hand the user text this service rejects. An unconfigured cluster reads as the starter, so a first-time user is handed something to edit rather than an empty box.',
+        parameters: [],
+        returns: 'the file\'s text, or the starter\'s when no document exists.',
+      },
+      {
+        signature: 'starterText(): string',
+        description: 'Render the starter as the text it is written as.',
+        parameters: [],
+        returns: 'YAML text naming the configured default cluster.',
+      },
+      {
+        signature: 'saveText(text: string): ClusterDocument',
+        description: 'Validate text and write it, so a surface can edit the document as text.\n\nThe text is parsed here rather than in the client because this service owns both the only parser and the only schema: a caller that parsed on its own would either accept what this repository rejects or reject what it accepts, and the two failures would look the same to a user.\n\nThe file is rewritten in this service\'s own formatting, so comments and hand layout do not survive a save; what does survive is every declared field, and saving an unchanged document changes nothing at all.',
+        parameters: [{ name: 'text', description: 'candidate document text, in YAML or JSON.' }],
+        returns: 'the validated document.',
+        throws: ['ClusterConfigError when a field is rejected.', 'Error when the text is not parseable at all.'],
+      },
+      {
+        signature: 'starter(): ClusterDocument',
+        description: 'Build the document a first-time user starts from.\n\nIt carries structure only: the operator\'s own cluster name, a star topology, and one worker. No route and no prose is invented here, because a model id is an environment fact this repository does not know and a description is copy that would have to be translated; both are the operator\'s to supply.',
+        parameters: [],
+        returns: 'a valid document naming the configured default cluster.',
+      },
+      {
         signature: 'reviewFor(clusterName: string = this.defaultClusterName()): ReviewSpec | undefined',
         description: 'Read the review policy that governs completed work.',
         parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }],
@@ -4309,6 +4347,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ClientArtifactBaseline {\n    readonly path: string;\n    readonly mtimeMs: number;\n    readonly size: number;\n}',
   },
   {
+    name: 'ClusterDocument',
+    declaration: 'export interface ClusterDocument {\n    readonly version: number;\n    readonly models: Readonly<Record<string, ModelSpec>>;\n    readonly defaultCluster?: string;\n    readonly clusters: Readonly<Record<string, ClusterSpec>>;\n}',
+  },
+  {
     name: 'ClusterSpec',
     declaration: 'export interface ClusterSpec {\n    readonly name: string;\n    readonly topology: ClusterTopology;\n    readonly maxConcurrency?: number;\n    readonly lead: LeadSpec;\n    readonly members: MemberSpec[];\n    readonly orchestration?: OrchestrationSpec;\n}',
   },
@@ -5295,6 +5337,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ModelReasoningEffort',
     declaration: 'export interface ModelReasoningEffort {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n}',
+  },
+  {
+    name: 'ModelSpec',
+    declaration: 'export interface ModelSpec extends RouteSpec {\n    readonly description?: string;\n}',
   },
   {
     name: 'ObjectJsonSchema',

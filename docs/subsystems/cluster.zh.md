@@ -90,6 +90,77 @@ briefingFor(clusterName: string, memberName: string): string | undefined
 budgetFor(clusterName: string, memberName: string): number | undefined
 
 /**
+ * Validate a document and write it, so a user can change the cluster at all.
+ *
+ * This is the only path that creates the file, so it goes through the same
+ * reader every load uses: a document with a rejected field never reaches the
+ * disk, and the caller learns which fields failed. The caller's own text is
+ * written rather than the expanded reading, so a named route stays named.
+ * @param document - candidate document, validated before anything is written.
+ * @returns the validated document.
+ * @throws ClusterConfigError when a field is rejected.
+ */
+save(document: unknown): ClusterDocument
+
+/**
+ * Read the document a settings surface edits.
+ *
+ * An absent document reads as the empty one rather than throwing, because a
+ * panel asking what to edit is exactly the case where no file exists yet;
+ * {@link configured} tells the two apart.
+ * @returns the loaded document, empty when none has been written.
+ */
+currentDocument(): ClusterDocument
+
+/**
+ * Read the document as the text a surface edits.
+ *
+ * A configured cluster reads as the file's own text rather than as a
+ * re-serialisation of the reading, because the reading cannot be written back:
+ * a cluster's name is carried by its key rather than spelled out, so a surface
+ * that showed the reading would hand the user text this service rejects. An
+ * unconfigured cluster reads as the starter, so a first-time user is handed
+ * something to edit rather than an empty box.
+ * @returns the file's text, or the starter's when no document exists.
+ */
+editableText(): string
+
+/**
+ * Render the starter as the text it is written as.
+ * @returns YAML text naming the configured default cluster.
+ */
+starterText(): string
+
+/**
+ * Validate text and write it, so a surface can edit the document as text.
+ *
+ * The text is parsed here rather than in the client because this service owns
+ * both the only parser and the only schema: a caller that parsed on its own
+ * would either accept what this repository rejects or reject what it accepts,
+ * and the two failures would look the same to a user.
+ *
+ * The file is rewritten in this service's own formatting, so comments and hand
+ * layout do not survive a save; what does survive is every declared field, and
+ * saving an unchanged document changes nothing at all.
+ * @param text - candidate document text, in YAML or JSON.
+ * @returns the validated document.
+ * @throws ClusterConfigError when a field is rejected.
+ * @throws Error when the text is not parseable at all.
+ */
+saveText(text: string): ClusterDocument
+
+/**
+ * Build the document a first-time user starts from.
+ *
+ * It carries structure only: the operator's own cluster name, a star topology,
+ * and one worker. No route and no prose is invented here, because a model id is
+ * an environment fact this repository does not know and a description is copy
+ * that would have to be translated; both are the operator's to supply.
+ * @returns a valid document naming the configured default cluster.
+ */
+starter(): ClusterDocument
+
+/**
  * Read the review policy that governs completed work.
  * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
  * @returns the enabled review policy, or undefined when review is off.

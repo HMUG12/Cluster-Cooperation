@@ -483,7 +483,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/cluster/config/src/index.ts:30`](../packages/cluster/config/src/index.ts)
+Source: [`packages/cluster/config/src/index.ts:31`](../packages/cluster/config/src/index.ts)
 
 <a id="deepseek-aidsh-compaction-basic"></a>
 
