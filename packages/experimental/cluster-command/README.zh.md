@@ -7,7 +7,7 @@ kind: "package-reference"
 
 [English](README.md) | 中文
 
-## 摘要
+## 概述
 
 `dsh-experimental-cluster-command` 为用户提供 `/cluster` 命令，从命令平面读取一个活着的 Agent Team：带每个成员运行时状态的花名册、带就绪与阻塞信息的共享任务板，以及任务之间的依赖边。命令及其直接输出停留在 UI 里，绝不进入模型请求，也不向 Team 写回任何东西。请在挂载了命令适配器的交互式部署中使用本包；没有命令适配器的 headless 与自动化应用不需要它。
 

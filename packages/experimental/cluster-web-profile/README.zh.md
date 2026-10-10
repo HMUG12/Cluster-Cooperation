@@ -7,18 +7,18 @@ kind: "package-bundle"
 
 [English](README.md) | 中文
 
-## Summary
+## 概述
 
 `dsh-experimental-cluster-web-profile` 是[集群面板](../cluster-web/README.zh.md)的已发布实验性 Web 层。把它加在 `@deepseek-ai/dsh-web-app` 与 [`@deepseek-ai/dsh-experimental-cluster-bundle`](../cluster-bundle/README.zh.md) 之后，就能在浏览器里读取集群的成员、任务板与已折叠的花费，**并在那里配置集群文档**。移除任一层实验层，稳定的 base 与 Web 组合都不变。dsh 安装把它作为**可选 bundle** 出厂，没有任何随行 Web profile 会启用它；请在 Host 层之后从 Web 侧栏的 Plugins 页面打开它。
 
-## Table of Contents
+## 目录
 
 - [使用本包](#use-this-package)
 - [理解实现](#understand-the-implementation)
 - [进一步探索](#further-exploration)
 - [模型体验](#model-experience)
 - [已知限制与待办](#known-limitations-and-deferred-work)
-- [开发者注记](#dev-note)
+- [开发备注](#dev-note)
 
 -----
 
@@ -88,7 +88,7 @@ dsh plugin --profile web add @deepseek-ai/dsh-experimental-cluster-web-profile
 - **这一层是开关，不是挂载** — 它不声明自己的行，所以把它从 profile 的 bundle 列表里移除就是关掉面板；以为这个文件里会写着面板的读者在这里找不到它。
 
 <a id="dev-note"></a>
-### 开发者注记
+### 开发备注
 
 <details>
 <summary>维护者的工作上下文 —— 点击展开</summary>

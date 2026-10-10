@@ -7,7 +7,7 @@ kind: "package-reference"
 
 [English](README.md) | 中文
 
-## 概要
+## 概述
 
 本包给 Team Lead 四种"一次把同一个问题抛给整队"的方式：一次持久广播、一次由某个成员汇总的圆桌、一次由某个成员计票的动议，以及一次由评判者裁断的辩论。每一种都是 Lead 光靠 `team_task_create` 表达不出来的扇出，因为**收口由任务板完成**：每个参与者都拥有一行，而汇总任务恰好阻塞在这些行上，于是照常走的释放路径会唤醒汇总者，并把他要读的计数或裁断一并捎上。这些工具只属于 Lead；没有挂载工具运行时的组合就是拿不到工具，不会有别的后果。
 
@@ -18,7 +18,7 @@ kind: "package-reference"
 - [进一步探索](#further-exploration)
 - [模型体验](#model-experience)
 - [已知限制与未完成事项](#known-limitations-and-deferred-work)
-- [开发说明](#dev-note)
+- [开发备注](#dev-note)
 
 -----
 
@@ -138,7 +138,7 @@ Lead 历史里多一次工具调用与一条 JSON 结果；开局轮每位辩手
 -----
 
 <a id="dev-note"></a>
-### 开发说明
+### 开发备注
 
 <details>
 <summary>维护者工作上下文——点击展开</summary>

@@ -7,7 +7,7 @@ kind: "package-reference"
 
 [English](README.md) | 中文
 
-## 概要
+## 概述
 
 本包把集群送到浏览器的方式是**一组生成的 Remote 方法**：花名册、任务板、其上的计数、折算后的花费、设置界面要编辑的文档文本，以及校验并保存它的那次写入。派生之所以放在这里而不是面板里，是因为客户端 bundle **不得导入别的插件的值** ✗：凡是需要面板自己算的东西，它就根本算不了。声明的集群名与花费都按**结构性读取**取得，与 `/cluster` 命令完全一致，因此那两个包挂或不挂，本服务都能加载。
 
@@ -18,7 +18,7 @@ kind: "package-reference"
 - [进一步探索](#further-exploration)
 - [模型体验](#model-experience)
 - [已知限制与未完成事项](#known-limitations-and-deferred-work)
-- [开发说明](#dev-note)
+- [开发备注](#dev-note)
 
 -----
 
@@ -93,7 +93,7 @@ kind: "package-reference"
 -----
 
 <a id="dev-note"></a>
-### 开发说明
+### 开发备注
 
 <details>
 <summary>维护者工作上下文——点击展开</summary>
