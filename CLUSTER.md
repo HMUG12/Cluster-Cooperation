@@ -1749,7 +1749,7 @@ node --import tsx/esm apps/cli/src/bin.ts --profile web \
 
 | 分组 | 结果 | 失败项 |
 |---|---|---|
-| `hygiene` | **13 过 / 3 败** ✗ | `constraints` ✗（**本轮新引入，见下** ✓）、`node-next types` ✗（既有 ✓）、`Cordis config` ✗（既有 ✓） |
+| `hygiene` | **13 过 / 3 败** ✗ → 复检 **14 过 / 2 败** ✓ | 首轮：`constraints` ✗（并行改动带出 ✓，**已由改动者自己修掉** ✓）、`node-next types` ✗、`Cordis config` ✗ |
 | `doc-sync` | **40 过 / 1 败** ✓ | `documentation site checks` ✗（**沙箱**：测试要建一个指向仓库外的符号链接，报 `EPERM` ✓） |
 
 与 §11.38 的 46 过 / 11 败相比，**失败从 11 条降到 4 条** ✓，且两条是**环境**（符号链接沙箱 ✓ + acp profile ✓）：
@@ -1758,11 +1758,17 @@ node --import tsx/esm apps/cli/src/bin.ts --profile web \
   `package README Summaries` ✓（§11.39 ✓）、`built package invariants` ✓（§11.40 的"safe-delete 护栏"不再触发 ✓）、
   `publint` ✓（本轮一次通过 ✓）、**`client catalog`** ✓（§11.40 记的 66 条既有违约已消 ✓，同轮里由并行的助手修掉 ✓）。
 - **仍然失败** ✓：
-  1. **`constraints`** ✗ —— 由**并行进行的** `cluster-web/package.json` 改动引入 ✓：
-     `files` 写成 `lib/types/types.js`，而本仓要求 `lib/types/**/*.js` ✓。
-     这是"新加的 `./types` 导出"带出来的 ✓，**尚未提交** ✓，属于**进行中** ✓。
-  2. **`node-next types`** ✗ —— 完整 `build:lib:host` 之后**仍然失败** ✓（§11.40 说它需完整构建复验 ✓，
-     这一轮复验了 ✓，结论是**不是构建缺失** ✗）。本包族是否牵涉其中**尚未定性** ✗。
+  1. **`constraints`** ✗ → ✓ —— 由**并行进行的** `cluster-web/package.json` 改动引入 ✓：
+     新加的 `./types` 导出一度带一个指向 `lib/types/types.js` 的**运行时默认** ✓，
+     规则于是要求 `files` 里出现 `lib/types/**/*.js` ✓（`usesEmittedTreeDefaults` ✓）。
+     改动者随后把它改成**只有 types** ✓、并去掉那条 `files` 条目 ✓ → **复检 0** ✓（`publint` 也是 0 ✓）。
+     这正是"并行编辑同一个包"的代价 ✓：门禁在两次编辑之间跑 ✓，看到的就是**中间态** ✓。
+  2. **`node-next types`** ✗ —— **已定性为环境** ✓：该门禁要给一个临时消费者工程**建符号链接** ✓
+     （`linkPackage` 与 `@types/node` ✓），而**本机不能创建符号链接** ✓——同一次扫描里
+     `project-doc-site.spec.ts` 的符号链接用例报的是同一个 `EPERM` ✓。
+     更麻烦的是它把**非 tsc 的异常也吞进 `catch`** ✗、只打印 tsc 的 stdout/stderr ✗ →
+     **诊断是空的** ✓，于是看起来像"类型失败" ✗。§11.40 写的"需完整构建复验" ✗ 本轮复验了 ✓：
+     **完整构建之后仍然失败，而且它不是类型问题** ✓。
   3. **`Cordis config`** ✗ —— `apps/cli/tests/profiles/acp/cordis.yml: root must be a Loader entry array` ✓，
      不在本工程 diff 内 ✓（既有 ✓）。
   4. **`documentation site checks`** ✗ —— `project-doc-site.spec.ts` 的"拒绝真实路径逃出仓库"一例
@@ -1774,12 +1780,68 @@ node --import tsx/esm apps/cli/src/bin.ts --profile web \
 
 ---
 
+## 11.50 环境解锁，以及 §11.49 之外的三处红灯（已完成并推送）
+
+前半是**环境** ✓，后半是**门禁** ✓；两者合起来才让"真跑"重新成为可能 ✓。
+
+### 环境：三件事，逐条解除
+
+1. **工作区写入被 Windows 权限挡住** ✗ —— 会话工作区根缺写入授权 ✓（`SetNamedSecurityInfoW` Win32 5 ✗）。
+   修好权限项之后，**真正的拦路者才现形** ✓：它不是权限项，而是**完整性标签** ✓——沙箱子进程跑在
+   **Low 完整性** ✓，工作区根有 Low 标签 ✓、而**嵌套的仓库目录没有** ✗，于是仓库内一切子进程写入
+   都被 no-write-up 拒绝 ✗（`pwsh` / `node` 全线失效 ✓，而 DSH 自己的文件工具照常 ✓——它们在宿主进程里跑 ✓）。
+   只有**切到完全权限**能解 ✓（已由你切换 ✓）；诊断报告与逐条还原命令留在 `E:\新创意构思\acl-recovery\` ✓。
+2. **`pnpm` 全链路死在一把陈旧锁上** ✗ —— `.git/dsh-lefthook-install.lock` 写于 **10-02 18:54** ✓、
+   记录的 PID 早已不存在 ✓、无任何进程持有 ✓。删掉它之后 `pnpm install` **19.7s 成功** ✓、
+   钩子装回 ✓（`pre-commit` / `pre-push` / `pre-merge-commit` ✓）。
+3. **§11.36 的推送阻塞就此解除** ✓ —— 那次定性为"安装器与本机删除护栏互锁" ✗，实际是**陈旧锁 + 沙箱下的删除限制** ✓。
+   本轮 `pre-commit`（lint / whitespace / vendor guard / third-party notices ✓）与 `pre-push` **真实跑过并通过** ✓，
+   **提交已推送** ✓，且**没有用 `--no-verify`** ✓。
+
+### 门禁：除 §11.48 / §11.49 已记的两处，还修掉三处（全部是我们的）
+
+1. **中文 README 骨架不合规（4 个包）** ✗ —— 门禁要求 `## 概述` / `## 目录` / `### 开发备注` ✓，
+   而 8 个包里 **4 个**写成 `## 摘要` / `## 概要` / `## Summary` / `## Table of Contents` /
+   `### 开发说明` / `### 开发者注记` ✗。门禁在**第一个**失败文件就停 ✗，所以历次只报出 `cluster-command` ✓——
+   §11.38 / §11.40 把它归为"需完整构建复验" ✗ 是**误判** ✓：它一直是我们自己的 ✓。一次修齐 8 处标题 + 3 条目录项 ✓。
+2. **中文工具目录里两个锚点坏了** ✗ —— `tool-cluster` 那节的 anchor 多写一个 `dsh-` ✓，
+   而 `todo` 的**共享片段别名**被挤到了那一节上 ✗ → todo 段落拿不到别名 ✓。
+   修好后 `project-doc-site` 的相应用例转绿 ✓。
+3. **`client catalog` 的过期正是我们造成的** ✗ —— 新面板成为 `conversation.session.header.actions`
+   的一个**占用者** ✓（`experimental-cluster-web ClusterPanel id 'cluster'` ✓），生成物必须重生成并提交 ✓。
+   §11.33 的"66 条既有违约、与本项目无关" ✗ 不适用于这次的**陈旧** ✓。
+
+### `publint` 的根因不在 CSS，而在一个多余的运行时默认
+
+面板样式被动态 bundle **内联** ✓，而 `files` 的规范形状要求发布 `lib/types/**/*.js` ✓——
+于是 tsc 吐出的客户端中间产物（`import './ClusterPanel.module.css'` ✓）被发布 ✓，而**那个文件从不产出** ✗
+→ 发布载荷不闭合 ✗。真正的开关是 `usesEmittedTreeDefaults` ✓：`./types` 的 `default` 指向产物树 ✓，
+才让整棵树的 JS 进了 `files` ✓。而**没有任何消费者在运行时 import 这个子路径** ✓——
+生成的 typert 产物只把它当 `typeSymbol` **字符串**用 ✓。改成**纯类型子路径**后，`files` 收到与
+`client-ui-agent-team` 同形 ✓，`constraints` 与 `publint` 同时转绿 ✓。
+
+`verify-node-next-types` 在本机**死于软链权限** ✗（脚本在 tsc 之前就 `EPERM` ✓，且它把非 tsc 异常也吞进
+`catch` ✗，于是诊断是空的 ✓）。我另做**等价验证** ✓：用目录 junction 建 NodeNext 消费者工程，
+导入五个子路径 → **EXIT=0** ✓。
+
+### 验收
+
+- `packages/cluster` + 六个 cluster 包：**196 用例 / 16 文件全绿** ✓（本轮 +10 ✓）
+- `tsc -b tsconfig.host.json` **0** ✓、`tsc -b tsconfig.client.json` **0** ✓
+- 四条 cluster E2E（真 CLI + 真 Team，重建 `lib/` 之后）：**4 passed** ✓
+- `constraints` **0** ✓、`publint` **0** ✓、`doc-standard` **22/22** ✓、`client catalog` **0** ✓，
+  14 项文档 / 生成器门禁全 0 ✓（配对 1017 ✓、链接 2023 ✓、折行 2047 ✓、模型体验 299 ✓、摘要 355 ✓、
+  限制 299 ✓、子系统页 55 ✓）
+- 权威两组余下的失败逐条定性 ✓：`node-next types` 与 `documentation site checks` = **本机不能建符号链接** ✓
+  （`EPERM` ✓）；`Cordis config` = **既有** ✓（`apps/cli/tests/profiles/acp/cordis.yml` ✓，不在 diff 内 ✓）
+
+---
+
 ## 12. 下一步（按优先级）
 
-1. **两条未定性的门禁失败** ✓（§11.49 ✓）：`node-next types` 在完整构建之后**仍然红** ✗，
-   本包族是否牵涉其中**尚未定性** ✗——它针对**已构建产物** ✓，先让它打印自己的诊断 ✓；
-   `constraints` 那条由**进行中**的 `cluster-web/package.json` 引起 ✓
-   （`files` 需为 `lib/types/**/*.js` ✓），**提交前必须转绿** ✓。
+1. **一条门禁必须转绿，两条已定性为环境** ✓（§11.49 ✓）：`constraints` 由**进行中**的
+   `cluster-web/package.json` 引起 ✓（`files` 需为 `lib/types/**/*.js` ✓），**提交前必须转绿** ✓；
+   `node-next types` 与 `documentation site checks` 同一个根因：**本机不能创建符号链接** ✓（§11.49 ✓）。
 2. **M4 的最后一次验收是人的一次点击** ✓：功能面已完整 ✓（§11.46 ✓），宿主组合（`--patch` 双叠加 ✓）、
    客户端构建（`build:lib:client` ✓）、jsdom 组件测试（10 例 ✓）都过了 ✓，
    缺的是**在真实浏览器里打开面板、改一份文档、保存** ✓。
