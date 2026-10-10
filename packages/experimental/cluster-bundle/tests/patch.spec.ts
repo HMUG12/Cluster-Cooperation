@@ -19,6 +19,8 @@ describe('cluster bundle', () => {
       '@deepseek-ai/dsh-cluster-config': 'workspace:^',
       '@deepseek-ai/dsh-experimental-cluster-orchestrator': 'workspace:^',
       '@deepseek-ai/dsh-experimental-cluster-router': 'workspace:^',
+      '@deepseek-ai/dsh-experimental-tool-cluster': 'workspace:^',
+      '@deepseek-ai/dsh-experimental-cluster-web': 'workspace:^',
       '@deepseek-ai/dsh-experimental-agent-team': 'workspace:^',
       '@deepseek-ai/dsh-experimental-tool-agent-team': 'workspace:^',
     })
@@ -43,9 +45,16 @@ describe('cluster bundle', () => {
       'cluster-config',
       'cluster-router',
       'cluster-orchestrator',
+      'tool-cluster',
+      'cluster-web',
     ])
     expect(inserted.find(entry => entry.id === 'cluster-router')?.name).toBe('@deepseek-ai/dsh-experimental-cluster-router')
     expect(inserted.find(entry => entry.id === 'cluster-orchestrator')?.name)
       .toBe('@deepseek-ai/dsh-experimental-cluster-orchestrator')
+    // The protocol tools and the panel are resolved through this bundle's own
+    // dependency chain, so a row without the matching dependency fails only when
+    // a composed profile loads it.
+    expect(inserted.find(entry => entry.id === 'tool-cluster')?.name).toBe('@deepseek-ai/dsh-experimental-tool-cluster')
+    expect(inserted.find(entry => entry.id === 'cluster-web')?.name).toBe('@deepseek-ai/dsh-experimental-cluster-web')
   })
 })

@@ -112,6 +112,14 @@ describe('clusterPanel', () => {
     expect(clusterPanel(view({ clusterName: 'demo' }), t).title).toBe('集群 · demo')
   })
 
+  it('says a cluster has no document only when the composition reports none', () => {
+    expect(clusterPanel(view(), t).unconfigured).toBeUndefined()
+    expect(clusterPanel(clusterOverview({
+      configured: false,
+      view: { members: [], tasks: [] },
+    }), t).unconfigured).toBe(t('unconfigured'))
+  })
+
   it('spells no copy of its own: the copy it renders is all dictionary keys', () => {
     const keys = new Set(Object.keys(zh))
     // Echoing each key back means a literal that skipped the dictionary would

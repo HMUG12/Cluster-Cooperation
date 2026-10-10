@@ -15,6 +15,7 @@ const t = (key: ClusterKey): string => zh[key]
 
 function read(): ClusterOverview {
   return {
+    configured: true,
     clusterName: 'demo',
     members: [{ name: 'lead', role: 'lead', status: 'running' }],
     tasks: [{
@@ -110,6 +111,13 @@ describe('ClusterPanel', () => {
     await screen.findByText('成员')
     fireEvent.click(screen.getByRole('button', { name: '刷新集群' }))
     expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  it('says a cluster without a document is not started yet', async () => {
+    const load = vi.fn(() => Promise.resolve({ ok: true as const, value: { ...read(), configured: false } }))
+    panel(load)
+    await openPanel()
+    expect(screen.getByText(zh.unconfigured)).toBeDefined()
   })
 
   it('reads no document until the settings are opened', async () => {
