@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package crosses the cluster to the browser in one shape: a single generated Remote method returning the roster, the board, its counts, and the folded spend, already ordered and counted. The derivation lives here rather than in the panel because a client bundle may not import another plugin's values, so anything the panel would work out for itself is something it cannot work out at all. The declared name and the spend are read structurally, as the `/cluster` command reads them, so this service loads whether or not those packages are mounted.
+This package crosses the cluster to the browser as generated Remote methods: the roster, the board, its counts, the folded spend, the document text a settings surface edits, and the write that validates and saves it. The derivation lives here rather than in the panel because a client bundle may not import another plugin's values, so anything the panel would work out for itself is something it cannot work out at all. The declared name, the spend, and the document are read structurally, so this service loads whether or not those packages are mounted.
 
 ## Table of Contents
 
@@ -34,7 +34,7 @@ Mount it wherever the Agent Team is mounted. It registers one service, `ctx.clus
 
 ### When to choose it
 
-Choose it when a Web page should show what the cluster is doing without giving the page any authority: every method on the service is a read, and the only credential it accepts is a live Team member. A headless deployment has no browser to serve and does not need it.
+Choose it when a Web page should show what the cluster is doing, and let a person configure it, without the page holding authority of its own: every method takes a live Team member as its credential, and the write is parsed and validated by the service that owns the schema, so a rejected field never reaches the disk. A headless deployment has no browser to serve and does not need it.
 
 -----
 
@@ -51,7 +51,7 @@ Choose it when a Web page should show what the cluster is doing without giving t
 | [`src/client/panel.ts`](src/client/panel.ts) | What the panel shows, as data: grouping, kind labels, rows, and counts |
 | [`src/client/ClusterPanel.tsx`](src/client/ClusterPanel.tsx) | The conversation-header action: reads the view on demand and lays out the derivation |
 | [`src/client/mount.ts`](src/client/mount.ts) | Registers the dictionaries and the header action, and mounts the Remote namespace |
-| [`src/index.ts`](src/index.ts) | The service: structural reads, and the one Remote method |
+| [`src/index.ts`](src/index.ts) | The service: structural reads, the overview, and the document read and write |
 
 Every rule is a pure function of the roster, the board, and the spend, which is why the tests need no live Team. The ordering is fixed rather than incidental: the Lead leads the roster, members break ties by name, and tasks sort by identity, so two reads of the same board produce the same view — which is what a person comparing two views, and a test, both need.
 
@@ -85,7 +85,7 @@ This package adds no model request content; the cluster tools own prompt, schema
 
 - No runtime invariant companion is published because the view is a pure function of three inputs, and those inputs are already asserted by the packages that own them.
 - **A web session needs the cluster profile, not a separate web layer** — the Host service and the browser entry are one row in `cluster-bundle`, so applying that profile to a web session is what makes the header action appear. [`cluster-web-profile`](../cluster-web-profile/README.md) is deliberately empty: inserting this package again would register `clusterWeb` twice, which the loader refuses at boot.
-- **The declarations are summarised, not listed** — the view reports the declared cluster name and each member's routed model, but not the full `cluster.yml`: a route list per member is a panel of its own, and the document already has a reader.
+- **The view summarises the declarations; the document is read on demand** — the overview reports the declared cluster name and each member's routed model, while the full `cluster.yml` is fetched only when the settings section is opened, so a reader who only wants the roster never pulls a document.
 - **Spend covers the members that have spent** — the orchestrator's fold has no row before a member's first model call, so the view lists what it folded rather than the whole roster.
 - **The action reads the invoking session's cluster** — a subagent session is not resolved to its Lead, so a teammate's own conversation reads the cluster its own identity belongs to rather than the Lead's.
 - **The protocol vocabulary is read across the service boundary, not imported** — the classifier lives with the prefixes it reads inside `tool-cluster` and is published as `ctx.clusterProtocols`, because a value import of another workspace package does not resolve in this repository's test resolution while a structural read does. A composition that publishes no vocabulary gets rows with no kind at all, rather than a guess.
@@ -98,6 +98,6 @@ This package adds no model request content; the cluster tools own prompt, schema
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
-The plan called for extending the upstream Team panel; this package is a sibling instead, because the cluster's own two surfaces are exactly the two the Team panel has no source for — the declarations and the spend — and a new read-only service can be added without changing an upstream contract. The panel itself, when it lands, is a browser half in this same package.
+The plan called for extending the upstream Team panel; this package is a sibling instead, because the cluster's own two surfaces are exactly the two the Team panel has no source for — the declarations and the spend — and a new service can be added without changing an upstream contract. The panel is the browser half in this same package: the header action renders the view, and a settings section reads the document, sends back what the user typed, and reports the schema owner's reason when a field is refused.
 
 </details>
