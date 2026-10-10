@@ -141,10 +141,28 @@ export class ClusterWeb extends TypertRemoteService {
     }
   }
 
-  /** Read the declared cluster name, when a composition mounts the declarations. */
+  /**
+   * Read the declared cluster name, when a composition mounts the declarations.
+   *
+   * A name is decoration on a view, so a cluster that cannot be named yet still
+   * reports its roster and its board: the state a first-time user is in has no
+   * document at all, and the declarations answer that question by throwing
+   * because no cluster can be selected. Routing asks the same service by member
+   * name and still fails loudly there, which is where an unusable document has
+   * to surface.
+   * @returns the declared cluster name, or undefined when there is none to read.
+   */
   private clusterName(): string | undefined {
     const source = this.lookup<ClusterConfigSource>('clusterConfig')
-    return source === undefined ? undefined : source.defaultClusterName()
+    if (source === undefined) return undefined
+    try {
+      return source.defaultClusterName()
+    } catch (error) {
+      // Named because the swallow is deliberate: an unnameable cluster is the
+      // unconfigured state this view reports, not a failure of the read.
+      this.ctx.logger.debug(`cluster view could not name the cluster: ${String(error)}`)
+      return undefined
+    }
   }
 
   /**
