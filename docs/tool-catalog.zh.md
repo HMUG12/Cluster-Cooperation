@@ -2300,11 +2300,7 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 
 这 10 个工具限定于隐式 Team Lead 与持久 teammate 作用域。随产品发布的 dsh-base bundle 默认禁用该包；文档中的 Agent Teams profile patch 会启用它，并禁用旧 continuable child 的同名控制工具。
 
-
-<a id="deepseek-aidsh-tool-todo"></a>
-
-
-<a id="deepseek-aidsh-dsh-experimental-tool-cluster"></a>
+<a id="deepseek-aidsh-experimental-tool-cluster"></a>
 
 ## `@deepseek-ai/dsh-experimental-tool-cluster`
 
@@ -2441,6 +2437,8 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 来源：[`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)
 
 四个协议都仅限 Lead 调用，并都通过任务板扇出：每个参与者都拥有一行，而汇总任务阻塞在这些行上，于是照常走的释放路径会唤醒汇总者，并把他要读的计数或裁断一并捎上。集群 bundle 会随其余组合一起挂载本包；没有工具运行时的 profile 拿不到工具，也不会因此多出任何依赖要求。
+
+<a id="deepseek-aidsh-tool-todo"></a>
 
 ## `@deepseek-ai/dsh-tool-todo`
 
