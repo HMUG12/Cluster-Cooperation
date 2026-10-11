@@ -138,6 +138,8 @@ Independent for routes: the package writes no request content. A briefing is app
 - **Briefing applies at spawn only** — an already-running teammate keeps the brief it started with.
 - **Budget reporting only** — `budgetFor()` answers what a member declared; the cluster orchestrator turns that into a notice, and nothing stops a member that overspends it.
 - **`topology` and `maxConcurrency` are inert** — both are parsed and range-checked, yet neither has an accessor and neither changes any runtime behaviour: the Team mailbox alone decides who may talk to whom, and nothing limits how many members run at once. They are declared so a document can state its intent, and they will stay inert until a consumer exists.
+- **No round cap is declared** — `agent/turn-stopping` is serial, but a listener cannot end a turn: the only objection it can express is steering, which makes the machine run another step. A declared round limit could therefore ask the Lead to wrap up once and report how many turns it took, and this document declares none.
+- **Compaction belongs upstream** — `ctx.compaction` owns its own trigger policy and a member's `tokenBudget` is the cluster's only context lever, so no per-member compaction setting is declared here.
 - **One cluster per profile** — callers pass a cluster name explicitly, so a deployment running several clusters concurrently must configure one `defaultCluster` per profile.
 
 <a id="dev-note"></a>
