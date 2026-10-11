@@ -37,6 +37,30 @@ export interface PanelSection {
   readonly empty: string
 }
 
+/** What one run of the panel's member action did. */
+export interface ClusterSpawnSummary {
+  /** Members the host brought up. */
+  readonly names: readonly string[]
+  /** Members it did not, each with the host's own reason. */
+  readonly refused: readonly string[]
+}
+
+/**
+ * State what one member action did, as the panel's outcome line.
+ *
+ * The refusal text carries the host's reason verbatim: only the service that
+ * attempted the spawn knows why a member did not come up.
+ * @param summary - names brought up and entries not brought up.
+ * @param t - translator for this panel's dictionary.
+ * @returns the outcome line.
+ */
+export function spawnReport(summary: ClusterSpawnSummary, t: (key: ClusterKey) => string): string {
+  return join([
+    summary.names.length === 0 ? t('spawnedNone') : fill(t('spawnedSome'), { names: summary.names.join(', ') }),
+    summary.refused.length === 0 ? undefined : fill(t('spawnSkipped'), { names: summary.refused.join('; ') }),
+  ])
+}
+
 /** Everything a panel renders, with every string already translated. */
 export interface ClusterPanel {
   /** Panel title. */

@@ -1,22 +1,38 @@
 /**
  * The cluster overview service a Web panel reads.
  *
- * It is the only cluster surface that crosses to the browser, and it crosses as
- * one generated Remote method returning the finished view: a client bundle may
- * not import another plugin's values, so the panel cannot derive anything
- * itself. The declarations and the folded spend are read structurally, exactly
- * as the `/cluster` command reads them, so this service needs no dependency on
- * the packages that own them and keeps loading when neither is mounted.
+ * It is the only cluster surface that crosses to the browser: generated Remote
+ * methods return the finished view, hand out and accept the document text, and
+ * bring the declared members up. A client bundle may not import another plugin's
+ * values, so the panel derives nothing itself. The declarations, the folded
+ * spend, and the protocol vocabulary are read structurally, exactly as the
+ * `/cluster` command reads them, so this service needs no dependency on the
+ * packages that own them and keeps loading when none is mounted.
  *
  * @module @deepseek-ai/dsh-experimental-cluster-web
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClusterProtocols, ClusterTaskKind } from '@deepseek-ai/dsh-experimental-tool-cluster'
 import { clusterOverview } from './overview.ts'
 import type { ClusterOverview, ClusterSpendRow } from './types.ts'
+
+/** Composition entry for the cluster Web service. */
+export interface Config {
+  /** Subagent provider that starts a member brought up with a fresh context. */
+  readonly freshProvider?: string
+  /** Subagent provider that starts a member brought up on the Lead's context. */
+  readonly forkProvider?: string
+}
+
+/** Loader schema for the cluster Web service. */
+export const Config: z<Config> = z.object({
+  freshProvider: z.string(),
+  forkProvider: z.string(),
+})
 
 /** Structural view of the optional cluster declaration service. */
 interface ClusterConfigSource {
@@ -27,6 +43,18 @@ interface ClusterConfigSource {
   editableText?(): string
   /** Parse, validate and write candidate document text. */
   saveText?(text: string): unknown
+  /** Read one declared member, when the reader knows how to list members. */
+  member?(cluster: string, name: string): { readonly description?: string; readonly context?: 'fresh' | 'fork' } | undefined
+  /** Read every declared member name, in document order. */
+  membersFor?(cluster: string): readonly { readonly name: string }[]
+  /** Read the route one declared member is bound to. */
+  routeFor?(cluster: string, name: string): {
+    readonly provider: string
+    readonly model: string
+    readonly reasoningEffort?: string
+  } | undefined
+  /** Read the briefing one declared member is spawned with. */
+  briefingFor?(cluster: string, name: string): string | undefined
 }
 
 /** Structural view of the optional folded-spend view. */
@@ -36,14 +64,24 @@ interface ClusterSpendSource {
 
 /** Cluster overview service consumed by the Web panel. */
 export class ClusterWeb extends TypertRemoteService {
+  static Config: z<Config> = Config
+
   static inject = ['agentTeams']
+
+  private readonly freshProvider: string
+  private readonly forkProvider: string
 
   /**
    * Register the service under the name the browser calls.
    * @param ctx - owning context.
+   * @param config - subagent providers a panel-initiated spawn uses.
    */
-  constructor(ctx: Context) {
+  constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'clusterWeb')
+    // Resolved once, here, so a composition that states no provider still gets
+    // the two the shipped Team tool row is configured with.
+    this.freshProvider = config.freshProvider ?? 'spawn'
+    this.forkProvider = config.forkProvider ?? 'fork'
   }
 
   /**
@@ -128,10 +166,98 @@ export class ClusterWeb extends TypertRemoteService {
   }
 
   /**
+   * Bring the declared members up through the generated Remote API.
+   *
+   * This is the human half of `spawn_teammate`: the tool needs a model turn and
+   * the Lead's judgement about whom to delegate to, while a person looking at a
+   * panel already knows which members the document declares. The route and the
+   * briefing come from the same accessors the tool reads, so a name is bound to
+   * the same model whichever path brought it up. A member already on the roster
+   * is left alone, and one that fails to start is reported instead of dropped.
+   * @param agent - exact live Team member used as the authority credential.
+   * @returns the members brought up, and every declared member that was not.
+   */
+  @Remote('spawnDeclared')
+  async remoteSpawnDeclared(agent: Agent): Promise<{
+    readonly spawned: readonly string[]
+    readonly skipped: readonly { readonly name: string; readonly reason: string }[]
+  }> {
+    this.requireMember(agent)
+    // The Team service accepts one spawner: the exact live Lead.
+    if (this.ctx.agentTeams.tryMembership(agent)?.role !== 'lead') {
+      return { spawned: [], skipped: [{ name: 'lead', reason: 'only the Lead session can bring members up' }] }
+    }
+    const clusterName = this.clusterName()
+    if (clusterName === undefined) {
+      return {
+        spawned: [],
+        skipped: [{ name: 'members', reason: 'no cluster document declares members, so there is nobody to bring up' }],
+      }
+    }
+    const declared = this.declaredMemberNames(clusterName)
+    if (declared === undefined || declared.length === 0) {
+      return {
+        spawned: [],
+        skipped: [{ name: 'members', reason: 'no cluster document declares members, so there is nobody to bring up' }],
+      }
+    }
+    const live = new Set(this.ctx.agentTeams.listMembers(agent).map(member => member.name))
+    const spawned: string[] = []
+    const skipped: { name: string; reason: string }[] = []
+    for (const name of declared) {
+      if (live.has(name)) {
+        skipped.push({ name, reason: 'already on the roster' })
+        continue
+      }
+      try {
+        await this.spawn(agent, clusterName, name)
+        spawned.push(name)
+      } catch (error) {
+        skipped.push({ name, reason: error instanceof Error ? error.message : String(error) })
+      }
+    }
+    return { spawned, skipped }
+  }
+
+  /**
+   * Create one declared member as a teammate of this Lead.
+   *
+   * A spawn starts the member's first turn, so the prompt is a task it can act
+   * on without one: it reports what it can take on and waits. The panel owns no
+   * cancellation channel, so the signal is one this call settles on its own.
+   * @param lead - the Lead Agent the Team service accepts as the spawner.
+   * @param clusterName - cluster whose declaration the member comes from.
+   * @param name - declared member name.
+   */
+  private async spawn(lead: Agent, clusterName: string, name: string): Promise<void> {
+    const source = this.lookup<ClusterConfigSource>('clusterConfig')
+    const declared = source?.member?.call(source, clusterName, name)
+    const route = source?.routeFor?.call(source, clusterName, name)
+    const briefing = source?.briefingFor?.call(source, clusterName, name)
+    const context = declared?.context ?? 'fresh'
+    await this.ctx.agentTeams.spawnTeammate(lead, {
+      name,
+      description: declared?.description ?? `Declared member of cluster "${clusterName}".`,
+      prompt: [
+        { type: 'text' as const, text: `<system-reminder>\nYou are teammate "${name}".\n</system-reminder>\n\n` },
+        ...briefing === undefined ? [] : [{ type: 'text' as const, text: `${briefing}\n\n` }],
+        {
+          type: 'text' as const,
+          text: 'A person brought you up from the cluster panel, so you have no assignment yet. Send the Lead one short message saying what you can take on, then wait for its instructions.',
+        },
+      ],
+      context,
+      provider: context === 'fork' ? this.forkProvider : this.freshProvider,
+      ...route === undefined ? {} : { agentOptions: route },
+      signal: new AbortController().signal,
+    })
+  }
+
+  /**
    * Refuse a caller that belongs to no cluster.
    *
-   * Reading and writing both go through this, so a session that is not part of a
-   * cluster gets the same answer whichever one it asks for.
+   * Reading, writing, and bringing members up all go through this, so a session
+   * that is not part of a cluster gets the same answer whichever one it asks for.
    * @param agent - exact live Team member used as the authority credential.
    * @throws Error when the member is in no cluster.
    */
@@ -161,6 +287,27 @@ export class ClusterWeb extends TypertRemoteService {
       // Named because the swallow is deliberate: an unnameable cluster is the
       // unconfigured state this view reports, not a failure of the read.
       this.ctx.logger.debug(`cluster view could not name the cluster: ${String(error)}`)
+      return undefined
+    }
+  }
+
+  /**
+   * Read the member names one cluster declares.
+   *
+   * A service that predates this reader, or a document that cannot be read,
+   * answers with undefined rather than an empty list: the two are different
+   * answers to "is there anybody to bring up".
+   * @param clusterName - the cluster whose declaration to read.
+   * @returns the declared names in document order, or undefined when none can be read.
+   */
+  private declaredMemberNames(clusterName: string): readonly string[] | undefined {
+    const source = this.lookup<ClusterConfigSource>('clusterConfig')
+    const read = source?.membersFor
+    if (source === undefined || read === undefined) return undefined
+    try {
+      return read.call(source, clusterName).map(member => member.name)
+    } catch (error) {
+      this.ctx.logger.debug(`cluster view could not read the declared members: ${String(error)}`)
       return undefined
     }
   }

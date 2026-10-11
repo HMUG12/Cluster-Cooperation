@@ -173,6 +173,16 @@ reviewFor(clusterName: string = this.defaultClusterName()): ReviewSpec | undefin
  * @returns the declared rounds policy, or undefined when none is declared.
  */
 roundsFor(clusterName: string = this.defaultClusterName()): RoundsSpec | undefined
+
+/**
+ * Read the members one cluster declares.
+ *
+ * Declared members are not live teammates: a surface that brings them up needs
+ * this list, and one that reports on them needs it to tell declared from live.
+ * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
+ * @returns the declared members, in document order.
+ */
+membersFor(clusterName: string = this.defaultClusterName()): readonly MemberSpec[]
 ```
 
 Types: [ModelSelection](core.md)

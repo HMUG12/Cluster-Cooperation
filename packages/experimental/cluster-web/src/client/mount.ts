@@ -40,6 +40,9 @@ function registerUi(ctx: ClientContext): void {
     async saveConfiguration(sessionId: ClusterSessionId, text: string) {
       return await ctx.remote.clusterWeb.saveConfiguration(sessionId, text)
     },
+    async spawnDeclared(sessionId: ClusterSessionId) {
+      return await ctx.remote.clusterWeb.spawnDeclared(sessionId)
+    },
   }
   ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
     name: 'conversation.session.header.actions',

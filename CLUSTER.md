@@ -1937,6 +1937,44 @@ fail-closed 的覆盖检查第一次运行就**指名要它** ✓；重生成后
 
 ---
 
+## 11.54 M4：面板上的"拉起声明成员"（已完成）
+
+你问的那句"就不能点按钮来加入集群吗" ✓ 指出了一个真实缺口 ✓：`cluster.yml` 里的 `members` 只是**声明** ✓，
+让它们变成活着的 teammate 的唯一入口是 **Lead 通过模型调用 `spawn_teammate`** ✓——人要参与就得等一次模型回合 ✓，
+而没有可用凭据时连这一轮都跑不起来 ✓。这一刀把**人的那一半**补上 ✓。
+
+| 位置 | 职责 |
+|---|---|
+| `packages/cluster/config` | 新增 `membersFor(clusterName)` ✓——“声明了谁”只有文档拥有者知道 ✓ |
+| `cluster-web`（宿主） | 新增 Remote `spawnDeclared` ✓：逐个拉起尚未在花名册上的成员 ✓，路由（`routeFor` ✓）与 briefing（`briefingFor` ✓）按**工具那条路读的同一批访问器**取 ✓ |
+| `cluster-web`（浏览器） | 面板新增按钮与结果行 ✓：`已拉起：coder` ✓ / `未拉起：reviewer (already on the roster)` ✓；动作结束后**重新读视图** ✓ |
+| `cluster-bundle` | patch 给 `cluster-web` 配 `freshProvider` / `forkProvider` ✓，与上面的 Team 工具行**同一组值** ✓ |
+
+四个决定 ✓：
+
+1. **权限不加宽** ✓：派生仍只接受 **Lead 本人会话** ✓——Team 服务的 `spawnTeammate` 本来就只认这一个凭据 ✓，
+   所以面板对 teammate 会话**如实拒绝**（`only the Lead session can bring members up` ✓）而不是绕过它 ✓。
+2. **不复制第二份意见** ✓：路由与 briefing 走配置包**已经公开的访问器** ✓（工具那条路用的是同一批 ✓），
+   面板只多读一个“声明了谁” ✓；因此**同一个名字无论从哪条路都被绑到同一个模型** ✓。
+3. **逐个尝试、逐条报告** ✓：已在花名册 → `already on the roster` ✓；派生抛错 → **原样带上错误文本** ✓；
+   一个失败不影响其余 ✓（与 §11.17 广播“拒绝必须带理由”同款 ✓）。
+4. **诚实的边界写进 README** ✓：Team 服务**靠跑第一轮来创建 teammate** ✓，所以这个动作需要一条可用路由与可用凭据 ✓——
+   没有的话成员**仍会被创建**、第一轮失败 ✓，面板把该成员连同**宿主的理由**报成“未拉起” ✓。
+
+**验证** ✓：`cluster-web` 服务层 **13 例** ✓（新增 5 ✓）、纯层 **10 例** ✓、组件 **12 例** ✓（新增 2 ✓）、
+`cluster-config` **41 例** ✓；`packages/cluster` + 六个 cluster 包 **220 用例 / 17 文件全绿** ✓（本刀 +8 ✓）；
+两面 `tsc` **0 / 0** ✓；两面 `tsdown` ✓；16 项门禁全 0 ✓（配对 1017 ✓、`type-equiv` 436 ✓、config-catalog ✓、cordis-catalog ✓…）；
+`constraints` / `package-dependencies` / `client-packages` / `package-invariants` / `default-product-isolation` 全 0 ✓。
+
+**顺带两处真发现** ✓：
+
+- `cluster-web` 一有 `Config` 就**自动进了配置目录** ✓（并从“无配置”清单移出 ✓）——中文侧必须手工镜像新小节与清单改动 ✓，
+  否则配对变红 ✓。
+- 类型检查抓到一处**收窄失效** ✗（`clusterName` 在闭包里仍是 `string | undefined` ✓）——vitest 不做类型检查 ✓，
+  测试全绿而 host `tsc` 红 ✓（本仓第三次同款 ✓）。
+
+---
+
 ## 12. 下一步（按优先级）
 
 1. **浏览器验收已由你本人完成**：真服务器上已确认面板在浏览器端清单里 ✓（`cluster-web` 的客户端 bundle

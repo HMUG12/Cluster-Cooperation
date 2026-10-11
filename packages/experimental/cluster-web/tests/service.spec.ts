@@ -13,16 +13,22 @@ import type { TeamMemberView, TeamTaskView } from '@deepseek-ai/dsh-experimental
 import ClusterWeb from '../src/index.ts'
 
 /**
- * The narrow Team surface this service reads.
+ * The narrow Team surface this service reads and writes.
  *
- * The service only lists, so the rows a test wants are set directly rather than
- * grown through a real Team.
+ * The service lists, and a human action spawns, so the rows and the recorded
+ * requests are set directly rather than grown through a real Team.
  */
 class TeamStub extends Service {
   /** Roster the next read returns. */
   members: TeamMemberView[] = []
   /** Board the next read returns. */
   tasks: TeamTaskView[] = []
+  /** Role the caller is reported to hold. */
+  role: TeamMemberView['role'] = 'lead'
+  /** Spawn requests the service made, in order. */
+  spawns: unknown[] = []
+  /** Reason a spawn refuses with, when the test wants one. */
+  spawnFailure: Error | undefined
 
   constructor(ctx: Context) {
     super(ctx, 'agentTeams')
@@ -34,6 +40,17 @@ class TeamStub extends Service {
 
   listTasks(): TeamTaskView[] {
     return this.tasks
+  }
+
+  tryMembership(): { readonly role: TeamMemberView['role'] } {
+    return { role: this.role }
+  }
+
+  spawnTeammate(_caller: unknown, request: unknown): { readonly member: TeamMemberView } {
+    if (this.spawnFailure !== undefined) throw this.spawnFailure
+    this.spawns.push(request)
+    const named = request as { readonly name: string }
+    return { member: member(named.name) }
   }
 }
 
@@ -187,5 +204,90 @@ describe('the document write', () => {
     const rejected = test.web.remoteSaveConfiguration(test.agent, DOCUMENT)
     if (rejected.saved) throw new Error('a composition without declarations was expected to refuse the write')
     expect(rejected.reason).toMatch(/cannot accept text/u)
+  })
+})
+
+/** A document whose two members declare a route, a context, and a briefing. */
+const DECLARED = [
+  'version: 1',
+  'defaultCluster: crew',
+  'models:',
+  '  coder: { provider: deepseek-official, model: deepseek-chat }',
+  'clusters:',
+  '  crew:',
+  '    members:',
+  '      - name: architect',
+  '        description: Owns structure.',
+  '        context: fresh',
+  '        model: coder',
+  '      - name: coder',
+  '        description: Implements.',
+  '        context: fork',
+  '        model: coder',
+  '        mission: Turn the agreed interface into working code.',
+  '',
+].join('\n')
+
+/** One spawn request as the stub recorded it. */
+interface RecordedSpawn {
+  readonly name: string
+  readonly description: string
+  readonly context: string
+  readonly provider: string
+  readonly agentOptions?: unknown
+  readonly prompt: readonly { readonly text: string }[]
+}
+
+describe('bringing the declared members up', () => {
+  it('spawns every declared member that is not live, on its declared route and context', async () => {
+    const test = await harness({ document: DECLARED })
+    expect(await test.web.remoteSpawnDeclared(test.agent)).toEqual({ spawned: ['architect', 'coder'], skipped: [] })
+    const [architect, coder] = test.team.spawns as RecordedSpawn[]
+    expect(architect?.name).toBe('architect')
+    expect(architect?.description).toBe('Owns structure.')
+    expect(architect?.context).toBe('fresh')
+    expect(architect?.provider).toBe('spawn')
+    expect(architect?.agentOptions).toEqual({ provider: 'deepseek-official', model: 'deepseek-chat' })
+    expect(architect?.prompt.map(block => block.text).join('')).toContain('You are teammate "architect"')
+    // A fork member takes the fork provider, and the briefing travels with it.
+    expect(coder?.context).toBe('fork')
+    expect(coder?.provider).toBe('fork')
+    expect(coder?.prompt.map(block => block.text).join('')).toContain('Turn the agreed interface into working code.')
+  })
+
+  it('leaves a member that is already on the roster alone, and reports one that failed', async () => {
+    const test = await harness({ document: DECLARED })
+    test.team.members = [member('lead'), member('architect')]
+    test.team.spawnFailure = new Error('no subagent provider named spawn')
+    expect(await test.web.remoteSpawnDeclared(test.agent)).toEqual({
+      spawned: [],
+      skipped: [
+        { name: 'architect', reason: 'already on the roster' },
+        { name: 'coder', reason: 'no subagent provider named spawn' },
+      ],
+    })
+  })
+
+  it('refuses a caller that is not the Lead, because the Team service accepts one spawner', async () => {
+    const test = await harness({ document: DECLARED })
+    test.team.role = 'teammate'
+    expect(await test.web.remoteSpawnDeclared(test.agent)).toEqual({
+      spawned: [],
+      skipped: [{ name: 'lead', reason: 'only the Lead session can bring members up' }],
+    })
+  })
+
+  it('says there is nobody to bring up when the document declares no member', async () => {
+    const test = await harness({ document: 'version: 1\nclusters:\n  crew:\n    members: []\n' })
+    expect(await test.web.remoteSpawnDeclared(test.agent)).toEqual({
+      spawned: [],
+      skipped: [{ name: 'members', reason: 'no cluster document declares members, so there is nobody to bring up' }],
+    })
+  })
+
+  it('refuses a session that belongs to no cluster', async () => {
+    const test = await harness({ document: DECLARED })
+    test.team.members = []
+    await expect(test.web.remoteSpawnDeclared(test.agent)).rejects.toThrow(/belongs to no cluster/u)
   })
 })

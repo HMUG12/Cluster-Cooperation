@@ -14,7 +14,7 @@ import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ClusterOverview } from '../types.ts'
-import { clusterPanel } from './panel.ts'
+import { clusterPanel, spawnReport } from './panel.ts'
 import { NS } from './locales.ts'
 import css from './ClusterPanel.module.css'
 import { IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -27,6 +27,8 @@ export interface ClusterPanelInjected {
   readConfiguration: (sessionId: SessionId) => Promise<RemoteResult<ClusterConfiguration>>
   /** Write edited document text, and report why when it is refused. */
   saveConfiguration: (sessionId: SessionId, text: string) => Promise<RemoteResult<ClusterSaveResult>>
+  /** Bring the members the document declares up, and report what happened to each. */
+  spawnDeclared: (sessionId: SessionId) => Promise<RemoteResult<ClusterSpawnResult>>
 }
 
 /** Full props of the cluster conversation-header action. */
@@ -44,6 +46,14 @@ export interface ClusterConfiguration {
 /** What a write attempt answered: written, or refused with a reason. */
 export type ClusterSaveResult = { readonly saved: true } | { readonly saved: false; readonly reason: string }
 
+/** What a member action answered: who came up, and who did not. */
+export interface ClusterSpawnResult {
+  /** Members the host brought up. */
+  readonly spawned: readonly string[]
+  /** Members it did not, each with the host's own reason. */
+  readonly skipped: readonly { readonly name: string; readonly reason: string }[]
+}
+
 /** One failure line: this seam keeps the code beside the message. */
 function failureText(error: { readonly code: string; readonly message: string }): string {
   return `${error.message} (${error.code})`
@@ -54,7 +64,7 @@ function failureText(error: { readonly code: string; readonly message: string })
  * @param props - framework-bound session identity, the injected reader, and the translator.
  * @returns the trigger, and the loaded panel once it is open.
  */
-export function ClusterPanel({ sessionId, load, readConfiguration, saveConfiguration, t }: ClusterPanelProps) {
+export function ClusterPanel({ sessionId, load, readConfiguration, saveConfiguration, spawnDeclared, t }: ClusterPanelProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [view, setView] = useState<ClusterOverview | null>(null)
@@ -63,6 +73,7 @@ export function ClusterPanel({ sessionId, load, readConfiguration, saveConfigura
   const [text, setText] = useState('')
   const [configured, setConfigured] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [spawning, setSpawning] = useState(false)
   const [outcome, setOutcome] = useState<string | null>(null)
   const sessionRef = useRef(sessionId)
   const generation = useRef(0)
@@ -128,6 +139,25 @@ export function ClusterPanel({ sessionId, load, readConfiguration, saveConfigura
   }, [saveConfiguration, sessionId, t, text])
 
   const content = useMemo(() => (view === null ? null : clusterPanel(view, t)), [view, t])
+
+  // Bringing members up changes the roster, so the view is re-read afterwards:
+  // the outcome line and the roster are two answers to the same gesture.
+  const bringUp = useCallback(async (): Promise<void> => {
+    const requested = sessionId
+    setSpawning(true)
+    const result = await spawnDeclared(requested)
+    if (sessionRef.current !== requested) return
+    setSpawning(false)
+    if (!result.ok) {
+      setOutcome(failureText(result.error))
+      return
+    }
+    setOutcome(spawnReport({
+      names: result.value.spawned,
+      refused: result.value.skipped.map(entry => `${entry.name} (${entry.reason})`),
+    }, t))
+    await refresh()
+  }, [refresh, sessionId, spawnDeclared, t])
   return (
     <div data-cluster-action="">
       <button
@@ -195,7 +225,17 @@ export function ClusterPanel({ sessionId, load, readConfiguration, saveConfigura
                     </div>
                   )
                   : (
-                    <button type="button" onClick={() => { void openEditor() }}>{t('settings')}</button>
+                    <>
+                      <button type="button" onClick={() => { void openEditor() }}>{t('settings')}</button>
+                      <button
+                        type="button"
+                        disabled={spawning}
+                        onClick={() => { void bringUp() }}
+                      >
+                        {spawning ? t('spawning') : t('spawnMembers')}
+                      </button>
+                      {outcome === null ? null : <p className={css.status} role="status">{outcome}</p>}
+                    </>
                   )}
               </>
             )}

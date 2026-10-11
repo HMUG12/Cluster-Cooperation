@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
-import { ClusterPanel, type ClusterConfiguration, type ClusterSaveResult } from '../src/client/ClusterPanel.tsx'
+import { ClusterPanel, type ClusterConfiguration, type ClusterSaveResult, type ClusterSpawnResult } from '../src/client/ClusterPanel.tsx'
 import { zh, type ClusterKey } from '../src/client/locales.ts'
 import type { ClusterOverview } from '../src/types.ts'
 
@@ -49,10 +49,21 @@ function panel(
     read?: () => Promise<RemoteResult<ClusterConfiguration>>
     save?: (text: string) => Promise<RemoteResult<ClusterSaveResult>>
   } = {},
+  members: {
+    spawn?: () => Promise<RemoteResult<ClusterSpawnResult>>
+  } = {},
 ) {
   const readConfiguration = () => document.read?.() ?? absent('readConfiguration')
   const saveConfiguration = (_sessionId: SessionId, text: string) => document.save?.(text) ?? absent('saveConfiguration')
-  const props = { sessionId: SESSION, load, readConfiguration, saveConfiguration, t } as unknown as Parameters<typeof ClusterPanel>[0]
+  const spawnDeclared = () => members.spawn?.() ?? absent('spawnDeclared')
+  const props = {
+    sessionId: SESSION,
+    load,
+    readConfiguration,
+    saveConfiguration,
+    spawnDeclared,
+    t,
+  } as unknown as Parameters<typeof ClusterPanel>[0]
   return render(<ClusterPanel {...props} />)
 }
 
@@ -165,5 +176,35 @@ describe('ClusterPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存文档' }))
     expect(await screen.findByText('已保存')).toBeDefined()
     expect(screen.getByLabelText('集群文档')).toBeDefined()
+  })
+
+  it('brings the declared members up, reports each outcome, and reads the roster again', async () => {
+    const bring = vi.fn(() => Promise.resolve({
+      ok: true as const,
+      value: {
+        spawned: ['coder'],
+        skipped: [{ name: 'reviewer', reason: 'already on the roster' }],
+      } as ClusterSpawnResult,
+    }))
+    const load = vi.fn(() => Promise.resolve({ ok: true as const, value: read() }))
+    panel(load, {}, { spawn: bring })
+    await openPanel()
+    fireEvent.click(screen.getByRole('button', { name: '拉起声明成员' }))
+    const line = await screen.findByText(/已拉起：coder/u)
+    expect(line.textContent).toContain('未拉起：reviewer (already on the roster)')
+    expect(bring).toHaveBeenCalledTimes(1)
+    // A spawn changes the roster, so the view is re-read before the line settles.
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  it('says there was nobody left to bring up', async () => {
+    const bring = vi.fn(() => Promise.resolve({
+      ok: true as const,
+      value: { spawned: [], skipped: [] } as ClusterSpawnResult,
+    }))
+    panel(() => Promise.resolve({ ok: true as const, value: read() }), {}, { spawn: bring })
+    await openPanel()
+    fireEvent.click(screen.getByRole('button', { name: '拉起声明成员' }))
+    expect(await screen.findByText('没有新成员可拉起')).toBeDefined()
   })
 })

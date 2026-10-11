@@ -754,6 +754,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }],
         returns: 'the declared rounds policy, or undefined when none is declared.',
       },
+      {
+        signature: 'membersFor(clusterName: string = this.defaultClusterName()): readonly MemberSpec[]',
+        description: 'Read the members one cluster declares.\n\nDeclared members are not live teammates: a surface that brings them up needs this list, and one that reports on them needs it to tell declared from live.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }],
+        returns: 'the declared members, in document order.',
+      },
     ],
   },
   {

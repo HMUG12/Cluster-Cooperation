@@ -359,6 +359,18 @@ export class ClusterConfig extends Service {
   roundsFor(clusterName: string = this.defaultClusterName()): RoundsSpec | undefined {
     return this.cluster(clusterName).orchestration?.rounds
   }
+
+  /**
+   * Read the members one cluster declares.
+   *
+   * Declared members are not live teammates: a surface that brings them up needs
+   * this list, and one that reports on them needs it to tell declared from live.
+   * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
+   * @returns the declared members, in document order.
+   */
+  membersFor(clusterName: string = this.defaultClusterName()): readonly MemberSpec[] {
+    return this.cluster(clusterName).members
+  }
 }
 
 export default ClusterConfig

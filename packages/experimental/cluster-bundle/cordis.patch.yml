@@ -44,3 +44,8 @@
 
     - id: cluster-web
       name: '@deepseek-ai/dsh-experimental-cluster-web'
+      config:
+        # The panel brings declared members up through the same subagent providers
+        # the Team tool row above is configured with, so both rows state them.
+        freshProvider: spawn
+        forkProvider: fork

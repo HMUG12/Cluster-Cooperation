@@ -721,6 +721,24 @@ export interface Config {
 
 来源：[`packages/experimental/cluster-router/src/index.ts:24`](../packages/experimental/cluster-router/src/index.ts)
 
+<a id="deepseek-aidsh-experimental-cluster-web"></a>
+
+## `@deepseek-ai/dsh-experimental-cluster-web`
+
+需要：`agentTeams`
+
+```ts config-catalog
+/** Composition entry for the cluster Web service. */
+export interface Config {
+  /** Subagent provider that starts a member brought up with a fresh context. */
+  readonly freshProvider?: string
+  /** Subagent provider that starts a member brought up on the Lead's context. */
+  readonly forkProvider?: string
+}
+```
+
+来源：[`packages/experimental/cluster-web/src/index.ts:24`](../packages/experimental/cluster-web/src/index.ts)
+
 <a id="deepseek-aidsh-compaction-basic"></a>
 
 ## `@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp`
@@ -3889,7 +3907,6 @@ export interface Config {
 - `@deepseek-ai/dsh-experimental-auto-review` — 需要 `llm` · `permissionPresets` · `sessions` · `tools`（[`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-client-ui-agent-team`（[`packages/experimental/client-ui-agent-team/src/index.ts`](../packages/experimental/client-ui-agent-team/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-cluster-command` — 需要 `commands` · `agentTeams`（[`packages/experimental/cluster-command/src/index.ts`](../packages/experimental/cluster-command/src/index.ts)）
-- `@deepseek-ai/dsh-experimental-cluster-web` — 需要 `agentTeams`（[`packages/experimental/cluster-web/src/index.ts`](../packages/experimental/cluster-web/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-computer-use-cua-driver-native` — requires `computerUse` · `tools` · `systemPrompt` ([`packages/experimental/computer-use-cua-driver-native/src/index.ts`](../packages/experimental/computer-use-cua-driver-native/src/index.ts))
 - `@deepseek-ai/dsh-experimental-tool-cluster` — 需要 `tools` · `agents` · `agentTeams`（[`packages/experimental/tool-cluster/src/index.ts`](../packages/experimental/tool-cluster/src/index.ts)）
 - `@deepseek-ai/dsh-fs-observation-policy`（[`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts)）

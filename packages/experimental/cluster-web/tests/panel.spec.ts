@@ -1,7 +1,7 @@
 /** The panel's content, decided without a browser. */
 
 import { describe, expect, it } from 'vitest'
-import { clusterPanel } from '../src/client/panel.ts'
+import { clusterPanel, spawnReport } from '../src/client/panel.ts'
 import { zh, type ClusterKey } from '../src/client/locales.ts'
 import { clusterOverview } from '../src/overview.ts'
 import type { ClusterTaskKind, ClusterOverview } from '../src/types.ts'
@@ -118,6 +118,13 @@ describe('clusterPanel', () => {
       configured: false,
       view: { members: [], tasks: [] },
     }), t).unconfigured).toBe(t('unconfigured'))
+  })
+
+  it('states what a member action did, keeping the host reason beside each refusal', () => {
+    expect(spawnReport({ names: ['coder'], refused: [] }, t)).toBe('已拉起：coder')
+    expect(spawnReport({ names: [], refused: [] }, t)).toBe('没有新成员可拉起')
+    expect(spawnReport({ names: ['coder', 'tester'], refused: ['reviewer (already on the roster)'] }, t))
+      .toBe('已拉起：coder, tester · 未拉起：reviewer (already on the roster)')
   })
 
   it('spells no copy of its own: the copy it renders is all dictionary keys', () => {
