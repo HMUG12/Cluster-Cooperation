@@ -87,13 +87,13 @@ function readiness(task: TeamTaskView): string {
 
 /**
  * Overall shape of the cluster: who is on it and what the board holds.
- * @param clusterName - cluster the deployment resolves as its default.
+ * @param clusterName - cluster the deployment resolves as its default, or undefined when no document names one.
  * @param members - current roster, Lead included.
  * @param tasks - current board, tombstones included.
  * @returns the status report.
  */
 export function clusterStatus(
-  clusterName: string,
+  clusterName: string | undefined,
   members: readonly TeamMemberView[],
   tasks: readonly TeamTaskView[],
 ): string {
@@ -102,7 +102,11 @@ export function clusterStatus(
   const ready = tasks.filter(task => task.ready).length
   const waiting = tasks.filter(task => task.status === 'pending' && !task.ready).length
   return [
-    `Cluster: ${clusterName}`,
+    clusterName === undefined
+      // The unconfigured state is a fact about this deployment, not a failure of
+      // the command: the Team below is live while nothing declares its policy.
+      ? 'Cluster: no document yet — this deployment declares no cluster.yml, so no routes and no review policy are in force.'
+      : `Cluster: ${clusterName}`,
     `Members: ${members.length} (lead + ${teammates.length} teammates) — ${buckets(MEMBER_STATUSES, countBy(teammates, member => member.status))}`,
     `Reachable: ${live.length} of ${teammates.length} teammates`,
     `Tasks: ${tasks.length} — ${buckets(TASK_STATUSES, countBy(tasks, task => task.status))}`,

@@ -86,6 +86,14 @@ describe('clusterStatus', () => {
     expect(report).toContain('Pending: 1 ready, 1 waiting on a blocker')
   })
 
+  it('says the deployment has no document rather than failing to name a cluster', () => {
+    const report = clusterStatus(undefined, [member('lead', 'lead', 'running')], [])
+    expect(report).toContain('Cluster: no document yet')
+    expect(report).toContain('no cluster.yml')
+    // The roster and the board are still live: only the declaration is missing.
+    expect(report).toContain('Members: 1 (lead + 0 teammates)')
+  })
+
   it('says nothing rather than zero when the board is empty', () => {
     const report = clusterStatus('solo', [member('lead', 'lead', 'running')], [])
     expect(report).toContain('Members: 1 (lead + 0 teammates)')

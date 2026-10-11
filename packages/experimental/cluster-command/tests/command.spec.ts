@@ -147,6 +147,22 @@ describe('/cluster human command', () => {
     expect(result.text).toContain('Tasks: 1 — completed 1')
   })
 
+  it('reports a deployment whose declarations name no cluster instead of failing the read', async () => {
+    const test = await harness()
+    test.team.members = [member('lead', 'lead', 'running')]
+    // A mounted configuration service with no document refuses to name a cluster,
+    // which is the state a deployment is in before anyone writes one.
+    test.ctx.provide('clusterConfig', {
+      defaultClusterName(): string {
+        throw new Error('cluster document declares no clusters')
+      },
+    })
+    const result = await run(test)
+    expect(result.kind).toBe('success')
+    expect(result.text).toContain('Cluster: no document yet')
+    expect(result.text).toContain('Members: 1 (lead + 0 teammates)')
+  })
+
   it('dispatches each sub-command to its own report', async () => {
     const test = await harness()
     test.team.members = [member('lead', 'lead', 'running')]

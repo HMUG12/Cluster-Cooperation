@@ -40,7 +40,7 @@ Mount it wherever a command adapter and the Agent Team are both present. Every s
 
 ### Output grammar
 
-A sub-command outside the five above is refused with the usage line instead of being treated as free text. Every renderer keeps a fixed order — status buckets and spend rows alike — so two runs over the same board print the same lines.
+A sub-command outside the five above is refused with the usage line instead of being treated as free text. Every renderer keeps a fixed order — status buckets and spend rows alike — so two runs over the same board print the same lines. A deployment that declares no `cluster.yml` says so in the status line rather than failing the read, because the roster and the board under it are still live.
 
 ### Compose it
 

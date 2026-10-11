@@ -31,11 +31,21 @@ interface ClusterPolicySource {
 }
 
 /** Whether this deployment loads a cluster document, and which cluster it names. */
-function defaultClusterName(ctx: Context): string {
+function defaultClusterName(ctx: Context): string | undefined {
   const found = (ctx as unknown as { get(name: string): unknown }).get('clusterConfig')
   if (typeof found !== 'object' || found === null) return 'this session'
   const read = (found as Partial<ClusterPolicySource>).defaultClusterName
-  return typeof read === 'function' ? read.call(found) : 'this session'
+  if (typeof read !== 'function') return 'this session'
+  try {
+    return read.call(found)
+  } catch (error) {
+    // Named because the swallow is deliberate: a deployment with no document is a
+    // state this command reports, not a read that failed — the declarations
+    // refuse to name a cluster when none is declared, and the roster below is
+    // still live.
+    ctx.logger.debug(`cluster command could not name the cluster: ${String(error)}`)
+    return undefined
+  }
 }
 
 /**
