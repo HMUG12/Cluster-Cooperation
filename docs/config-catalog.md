@@ -701,7 +701,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/experimental/cluster-orchestrator/src/index.ts:46`](../packages/experimental/cluster-orchestrator/src/index.ts)
+Source: [`packages/experimental/cluster-orchestrator/src/index.ts:47`](../packages/experimental/cluster-orchestrator/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-cluster-router"></a>
 

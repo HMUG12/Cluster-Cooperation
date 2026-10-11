@@ -55,6 +55,7 @@ clusters:
     topology: mesh
     orchestration:
       review: { enabled: true, reviewer: reviewer, maxRetries: 2 }
+      rounds: { max: 12 }
     lead:
       route: planner
       fallback: [cheap]
@@ -138,7 +139,7 @@ clusters:
 - **briefing 只在派生时生效** — 已在运行的 teammate 会保持它起步时拿到的那份简报。
 - **预算只报告不拦截** — `budgetFor()` 只回答成员声明了什么；由 cluster orchestrator 把它变成一条通知，没有任何东西能阻止超额花费的成员。
 - **`topology` 与 `maxConcurrency` 是空转的** — 两者都会被解析并做范围校验，但既没有访问器，也不改变任何运行时行为：谁能和谁说话完全由 Team 邮箱决定，也没有东西限制同时运行的成员数。它们被声明只是为了让文档能写下意图；在有消费者之前会一直空转。
-- **没有声明轮次上限** — `agent/turn-stopping` 是串行的，但**听众无法结束一轮**：它能表达的唯一反对方式是 steer，而那会让机器**再跑一个 step**。因此一个已声明的轮次上限最多只能**请求** Lead 收尾一次并报告用掉了几轮；本文档没有声明这样的上限。
+- **轮次上限是"说出来"，不是"拦下来"** — `orchestration.rounds.max` 由 `roundsFor()` 读出，并由 `/cluster` 与编排器数出的轮次并排报告；而 `agent/turn-stopping` 虽是串行的，却**无法结束一轮**：听众能表达的唯一反对方式是 steer，那会让机器再跑一个 step。想让 Lead 停下的部署，必须**对报告采取行动**。
 - **压缩归上游所有** — `ctx.compaction` 拥有自己的触发策略，而成员的 `tokenBudget` 是集群唯一的上下文杠杆，因此这里不声明任何按成员的压缩设置。
 - **每个 profile 只支持一个 cluster** — 调用方需显式传入 cluster 名，因此多个 cluster 并发运行的部署必须为每个 profile 配置一个 `defaultCluster`。
 

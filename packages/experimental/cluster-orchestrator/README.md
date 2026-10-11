@@ -69,10 +69,11 @@ A released owner starts working without the Lead polling the board. A completion
 | [`src/ready.ts`](src/ready.ts) | Readiness arithmetic and the wake-up text |
 | [`src/review.ts`](src/review.ts) | Review request, rejection counting, and both verdict texts |
 | [`src/spend.ts`](src/spend.ts) | Usage folding, budget verdicts, and both budget notices |
+| [`src/rounds.ts`](src/rounds.ts) | Turn counting and the summary a report states |
 | [`src/handoff.ts`](src/handoff.ts) | Release-time assignment and the wake-up that carries it |
 | [`src/index.ts`](src/index.ts) | Plugin: event subscription, roster resolution, queued delivery |
 
-The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
+The plugin subscribes to `session/event` and filters the durable commits rather than polling, so every notice rides the same fact that changed the board. It also counts each member's turns at that member's stop boundary, which is the one fact a turned turn reports; the counts are published as a read-only view for whoever reports them. All decisions live in the pure modules, which is why every rule is covered by tests that need no live Team. Deliveries are serialized through one promise chain so a slow message cannot let a later event overtake it.
 
 Replay suppression differs per rule because the right key differs: the board keys on `taskId::revision`, while spend folds only events newer than the last folded `seq` for that session. Both make a replayed event a no-op without keeping state that could drift, and the refusal conditions matter as much as the rules — a review is never opened for a review, for the reviewer's own work, or for a completion that already has one.
 
@@ -120,6 +121,7 @@ Append-only for the recipient: each notice is appended after the reusable reques
 - **Wake-up only** — a notice is a message, not a claim. The owner still has to call `team_task_get` and `team_task_update`, so a member that ignores its mailbox stalls the edge.
 - **A handoff depends on its declaration surviving to release** — the `cluster-owner:` line must still be in the description when the last blocker lands, and the name must still be on the roster; otherwise the task stays unowned and nobody is woken for it.
 - **Budget notice, not a hard stop** — an over-budget member is asked to wind down once per Session and nothing cancels its turn, so a member that ignores the notice keeps spending.
+- **Round cap reported, not enforced** — turns are counted at each member's stop boundary and published for `/cluster` to state against `orchestration.rounds.max`, while nothing here ends a turn: a serial listener at that boundary can only steer, which runs another step.
 - **Review verdicts ride the board** — approval is completing the review task and rejection is reopening the reviewed one. A reviewer that does neither leaves the review open forever.
 - **Dependents wait on the verdict** — because a reviewed completion releases nobody, a reviewer that never approves leaves everything downstream of that task blocked, and only an operator or the Lead can break the tie.
 - **The Lead cannot be addressed** — the Team mailbox refuses a message a member sends to itself, and this plugin holds only the Lead's credential, so a notice that concerns the Lead names it inside the member's own notice and the member carries the report. An unowned escalation has no legal recipient and is logged for the operator instead.

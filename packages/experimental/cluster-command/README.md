@@ -25,13 +25,13 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount it wherever a command adapter and the Agent Team are both present. Every sub-command runs against the Team the invoking agent belongs to, so the Lead and a teammate read the same board. `/cluster cost` additionally needs the cluster orchestrator, which is the only plugin that folds every session's usage; without it the report says so rather than printing a zero.
+Mount it wherever a command adapter and the Agent Team are both present. Every sub-command runs against the Team the invoking agent belongs to, so the Lead and a teammate read the same board. `/cluster cost` additionally needs the cluster orchestrator, which is the only plugin that folds every session's usage; without it the report says so rather than printing a zero. The status line's round count comes from that same plugin, and a deployment without it reports the declared cap alone.
 
 ### Command reference
 
 | Input | Result |
 |---|---|
-| `/cluster` | Overall shape: the cluster name, roster counts by status, how many teammates are reachable, and the board by status with how many pending tasks are ready |
+| `/cluster` | Overall shape: the cluster name, roster counts by status, how many teammates are reachable, the board by status with how many pending tasks are ready, and the turns counted against the declared round cap |
 | `/cluster status` | The same report, named explicitly |
 | `/cluster tasks` | One line per shared task: id, status, subject, owner, and its readiness with every blocker |
 | `/cluster agents` | One line per member, Lead first: name, runtime status, role, model, and any diagnostics |

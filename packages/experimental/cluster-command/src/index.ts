@@ -20,6 +20,7 @@ import {
   clusterTasks,
   parseClusterCommand,
   type ClusterCostRow,
+  type RoundReport,
 } from './report.ts'
 
 export const name = 'command-cluster'
@@ -69,6 +70,57 @@ function spendText(ctx: Context): string {
   return clusterCost(read.call(found))
 }
 
+/**
+ * Read the declared cap and the counts the orchestrator publishes.
+ *
+ * The command can read the cap from the declarations, but it cannot count turns
+ * itself: only the orchestrator sees every member's turn boundary. A deployment
+ * that mounts one half and not the other reports the half it has.
+ * @param ctx - the context the command runs in.
+ * @param clusterName - the declared cluster, or undefined when no document names one.
+ * @returns the report's round data, or undefined when neither half is available.
+ */
+function roundsReport(ctx: Context, clusterName: string | undefined): RoundReport | undefined {
+  const cap = clusterName === undefined ? undefined : declaredCap(ctx, clusterName)
+  const counted = publishedRounds(ctx)
+  if (counted === undefined) return cap === undefined ? undefined : { members: 0, turns: 0, cap }
+  return { ...counted, ...cap === undefined ? {} : { cap } }
+}
+
+/** The cap the declarations state, when a configuration service is mounted and accepts the read. */
+function declaredCap(ctx: Context, clusterName: string): number | undefined {
+  const found = (ctx as unknown as { get(name: string): unknown }).get('clusterConfig')
+  const read = typeof found === 'object' && found !== null
+    ? (found as Partial<{ roundsFor(cluster: string): { readonly max: number } | undefined }>).roundsFor
+    : undefined
+  if (typeof read !== 'function') return undefined
+  try {
+    return read.call(found, clusterName)?.max
+  } catch (error) {
+    // Named because the swallow is deliberate: a document that declares no such
+    // cluster has no cap to state, which is not a reason to fail the report.
+    ctx.logger.debug(`cluster command could not read the round cap: ${String(error)}`)
+    return undefined
+  }
+}
+
+/** The turn counts the orchestrator publishes, when it is mounted. */
+function publishedRounds(ctx: Context): { readonly members: number; readonly turns: number } | undefined {
+  const found = (ctx as unknown as { get(name: string): unknown }).get('clusterRounds')
+  const read = typeof found === 'object' && found !== null
+    ? (found as Partial<{ members(): readonly { readonly turns: number }[] }>).members
+    : undefined
+  if (typeof read !== 'function') return undefined
+  try {
+    const rows = read.call(found) ?? []
+    if (rows.length === 0) return undefined
+    return { members: rows.length, turns: rows.reduce((total, row) => total + row.turns, 0) }
+  } catch (error) {
+    ctx.logger.debug(`cluster command could not read the counted turns: ${String(error)}`)
+    return undefined
+  }
+}
+
 /** Execute one parsed human command against the live Team. */
 function executeClusterCommand(ctx: Context, invocation: CommandInvocation): CommandResult {
   const command = parseClusterCommand(invocation.rawInput)
@@ -77,13 +129,14 @@ function executeClusterCommand(ctx: Context, invocation: CommandInvocation): Com
     if (command.subcommand === 'cost') return { kind: 'success', text: spendText(ctx) }
     const members = ctx.agentTeams.listMembers(invocation.agent)
     const tasks = ctx.agentTeams.listTasks(invocation.agent)
+    const clusterName = defaultClusterName(ctx)
     const text = command.subcommand === 'tasks'
       ? clusterTasks(tasks)
       : command.subcommand === 'agents'
         ? clusterAgents(members)
         : command.subcommand === 'graph'
           ? clusterGraph(tasks)
-          : clusterStatus(defaultClusterName(ctx), members, tasks)
+          : clusterStatus(clusterName, members, tasks, roundsReport(ctx, clusterName))
     return { kind: 'success', text }
   } catch (error: unknown) {
     // A command runs outside a model turn, so a refusal has to be readable here

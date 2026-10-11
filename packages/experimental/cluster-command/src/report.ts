@@ -85,17 +85,29 @@ function readiness(task: TeamTaskView): string {
   return task.ready ? ` (ready${blockers})` : ` (waiting${blockers})`
 }
 
+/** Counted rounds a report states, as whatever publishes them reports. */
+export interface RoundReport {
+  /** Members that have taken at least one turn. */
+  readonly members: number
+  /** Turns those members took in total. */
+  readonly turns: number
+  /** Declared cap, when the cluster declares one. */
+  readonly cap?: number
+}
+
 /**
  * Overall shape of the cluster: who is on it and what the board holds.
  * @param clusterName - cluster the deployment resolves as its default, or undefined when no document names one.
  * @param members - current roster, Lead included.
  * @param tasks - current board, tombstones included.
+ * @param rounds - counted rounds, absent when no composition counts them and no cap is declared.
  * @returns the status report.
  */
 export function clusterStatus(
   clusterName: string | undefined,
   members: readonly TeamMemberView[],
   tasks: readonly TeamTaskView[],
+  rounds?: RoundReport,
 ): string {
   const teammates = members.filter(member => member.role === 'teammate')
   const live = teammates.filter(member => member.status !== 'failed')
@@ -111,7 +123,18 @@ export function clusterStatus(
     `Reachable: ${live.length} of ${teammates.length} teammates`,
     `Tasks: ${tasks.length} — ${buckets(TASK_STATUSES, countBy(tasks, task => task.status))}`,
     `Pending: ${ready} ready, ${waiting} waiting on a blocker`,
+    ...rounds === undefined ? [] : [roundsLine(rounds)],
   ].join('\n')
+}
+
+/**
+ * State the counted rounds and the cap they are measured against.
+ * @param rounds - counted rounds.
+ * @returns the report line.
+ */
+function roundsLine(rounds: RoundReport): string {
+  const cap = rounds.cap === undefined ? 'no cap declared' : `cap ${rounds.cap}`
+  return `Rounds: ${rounds.turns} used by ${rounds.members} members — ${cap}`
 }
 
 /**

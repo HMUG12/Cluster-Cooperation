@@ -748,6 +748,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }],
         returns: 'the enabled review policy, or undefined when review is off.',
       },
+      {
+        signature: 'roundsFor(clusterName: string = this.defaultClusterName()): RoundsSpec | undefined',
+        description: 'Read the declared round cap.',
+        parameters: [{ name: 'clusterName', description: 'owning cluster, defaulting to {@link defaultClusterName}.' }],
+        returns: 'the declared rounds policy, or undefined when none is declared.',
+      },
     ],
   },
   {
@@ -5384,7 +5390,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'OrchestrationSpec',
-    declaration: 'export interface OrchestrationSpec {\n    readonly review?: ReviewSpec;\n}',
+    declaration: 'export interface OrchestrationSpec {\n    readonly review?: ReviewSpec;\n    readonly rounds?: RoundsSpec;\n}',
   },
   {
     name: 'PackageResult',
@@ -5701,6 +5707,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ReviewSpec',
     declaration: 'export interface ReviewSpec {\n    readonly enabled: boolean;\n    readonly reviewer: string;\n    readonly maxRetries: number;\n}',
+  },
+  {
+    name: 'RoundsSpec',
+    declaration: 'export interface RoundsSpec {\n    readonly max: number;\n}',
   },
   {
     name: 'RouteSpec',

@@ -163,6 +163,30 @@ describe('/cluster human command', () => {
     expect(result.text).toContain('Members: 1 (lead + 0 teammates)')
   })
 
+  it('states the counted turns and the cap the declarations set', async () => {
+    const test = await harness()
+    test.team.members = [member('lead', 'lead', 'running'), member('coder', 'teammate', 'idle')]
+    test.ctx.provide('clusterConfig', {
+      defaultClusterName: () => 'crew',
+      roundsFor: () => ({ max: 20 }),
+    })
+    test.ctx.provide('clusterRounds', {
+      members: () => [{ name: 'coder', turns: 3 }, { name: 'lead', turns: 4 }],
+    })
+    const result = await run(test)
+    expect(result.kind).toBe('success')
+    expect(result.text).toContain('Cluster: crew')
+    expect(result.text).toContain('Rounds: 7 used by 2 members — cap 20')
+  })
+
+  it('states the counted turns without a cap when no cluster declares one', async () => {
+    const test = await harness()
+    test.team.members = [member('lead', 'lead', 'running')]
+    test.ctx.provide('clusterRounds', { members: () => [{ name: 'lead', turns: 2 }] })
+    const result = await run(test)
+    expect(result.text).toContain('Rounds: 2 used by 1 members — no cap declared')
+  })
+
   it('dispatches each sub-command to its own report', async () => {
     const test = await harness()
     test.team.members = [member('lead', 'lead', 'running')]

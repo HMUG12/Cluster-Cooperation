@@ -166,6 +166,13 @@ starter(): ClusterDocument
  * @returns the enabled review policy, or undefined when review is off.
  */
 reviewFor(clusterName: string = this.defaultClusterName()): ReviewSpec | undefined
+
+/**
+ * Read the declared round cap.
+ * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
+ * @returns the declared rounds policy, or undefined when none is declared.
+ */
+roundsFor(clusterName: string = this.defaultClusterName()): RoundsSpec | undefined
 ```
 
 Types: [ModelSelection](core.md)

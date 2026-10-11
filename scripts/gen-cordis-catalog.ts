@@ -282,6 +282,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ClusterDocument: 'cluster.md',
   MemberSpec: 'cluster.md',
   ReviewSpec: 'cluster.md',
+  RoundsSpec: 'cluster.md',
   ComputerUseProviderName: 'computer-use.md',
   RenderedDocumentBytes: 'office-to-pdf.md',
   OfficeToPdfRequest: 'office-to-pdf.md',

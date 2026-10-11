@@ -25,6 +25,7 @@ import {
 import { handoffMessage, ownershipHandoffs } from './handoff.ts'
 import { readyMessage, readyNotices, releaseDecision } from './ready.ts'
 import { retryMessage, retryNotice, reviewMessage, reviewRequest, type ReviewRequest } from './review.ts'
+import { countTurn, type MemberRounds } from './rounds.ts'
 import {
   addUsage,
   budgetNotice,
@@ -134,6 +135,27 @@ export function apply(ctx: Context, config: Config = {}): void {
         }
       }))
     },
+  })
+
+  // Turns are counted at the stop boundary rather than from durable events: the
+  // boundary names the turn about to close, so one observation per turn is
+  // enough. The counts are published the way the spend fold is, because a
+  // consumer that cannot see every session could not count them either.
+  let rounds: readonly MemberRounds[] = []
+  ctx.provide('clusterRounds', { members: (): readonly MemberRounds[] => rounds })
+
+  const memberName = (agent: Agent): string | undefined => {
+    try {
+      return ctx.agentTeams.tryMembership(agent)?.name
+    } catch {
+      return undefined
+    }
+  }
+
+  ctx.on('agent/turn-stopping', ({ agent, turn }) => {
+    const name = memberName(agent)
+    if (name === undefined) return
+    rounds = countTurn(rounds, name, turn)
   })
 
   const policy = (): ClusterPolicySource | undefined =>

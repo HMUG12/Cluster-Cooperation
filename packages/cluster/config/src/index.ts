@@ -18,7 +18,7 @@ import { parse, stringify } from 'yaml'
 import { renderBriefing } from './briefing.ts'
 import { readClusterDocument } from './document.ts'
 import { CLUSTER_DOCUMENT_VERSION } from './types.ts'
-import type { ClusterDocument, ClusterSpec, MemberSpec, ReviewSpec, RouteSpec } from './types.ts'
+import type { ClusterDocument, ClusterSpec, MemberSpec, ReviewSpec, RouteSpec, RoundsSpec } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -349,6 +349,15 @@ export class ClusterConfig extends Service {
     const review = this.cluster(clusterName).orchestration?.review
     if (review === undefined || !review.enabled || review.reviewer.length === 0) return undefined
     return review
+  }
+
+  /**
+   * Read the declared round cap.
+   * @param clusterName - owning cluster, defaulting to {@link defaultClusterName}.
+   * @returns the declared rounds policy, or undefined when none is declared.
+   */
+  roundsFor(clusterName: string = this.defaultClusterName()): RoundsSpec | undefined {
+    return this.cluster(clusterName).orchestration?.rounds
   }
 }
 

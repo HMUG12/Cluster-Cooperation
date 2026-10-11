@@ -703,7 +703,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/experimental/cluster-orchestrator/src/index.ts:51`](../packages/experimental/cluster-orchestrator/src/index.ts)
+来源：[`packages/experimental/cluster-orchestrator/src/index.ts:47`](../packages/experimental/cluster-orchestrator/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-cluster-router"></a>
 

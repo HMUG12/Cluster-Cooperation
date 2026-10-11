@@ -17,6 +17,7 @@ import {
   type OrchestrationSpec,
   type ReviewSpec,
   type RouteSpec,
+  type RoundsSpec,
 } from './types.ts'
 
 const TOPOLOGIES: readonly string[] = ['star', 'mesh', 'pipeline', 'debate']
@@ -298,6 +299,32 @@ function readReviewSpec(
   }
 }
 
+/**
+ * Read the declared round cap.
+ * @param value - raw `orchestration.rounds` value.
+ * @param path - field path used in diagnostics.
+ * @param issues - issue accumulator.
+ * @returns the rounds policy, or undefined when the block is absent.
+ */
+function readRoundsSpec(value: unknown, path: string, issues: IssueBuilder): RoundsSpec | undefined {
+  if (value === undefined) return undefined
+  const record = requireObject(value, path, issues)
+  if (record === undefined) return undefined
+  rejectUnknown(record, ['max'], path, issues)
+  const max = optionalNumber(record, 'max', path, issues)
+  if (max === undefined) {
+    // A wrong type was already reported by the reader above; only the absent key
+    // needs its own reason, because a cap nobody stated is not a cap.
+    if (record['max'] === undefined) issues.add(`${path}.max`, 'required: declare the most turns one member may take')
+    return undefined
+  }
+  if (!Number.isInteger(max) || max <= 0) {
+    issues.add(`${path}.max`, 'expected a positive integer')
+    return undefined
+  }
+  return { max }
+}
+
 function readOrchestrationSpec(
   value: unknown,
   path: string,
@@ -307,9 +334,13 @@ function readOrchestrationSpec(
   if (value === undefined) return undefined
   const record = requireObject(value, path, issues)
   if (record === undefined) return undefined
-  rejectUnknown(record, ['review'], path, issues)
+  rejectUnknown(record, ['review', 'rounds'], path, issues)
   const review = readReviewSpec(record['review'], `${path}.review`, issues, memberNames)
-  return { ...review === undefined ? {} : { review } }
+  const rounds = readRoundsSpec(record['rounds'], `${path}.rounds`, issues)
+  return {
+    ...review === undefined ? {} : { review },
+    ...rounds === undefined ? {} : { rounds },
+  }
 }
 
 function readClusterSpec(

@@ -94,6 +94,21 @@ describe('clusterStatus', () => {
     expect(report).toContain('Members: 1 (lead + 0 teammates)')
   })
 
+  it('states the counted rounds and the cap they are measured against', () => {
+    const report = clusterStatus('main', [member('lead', 'lead', 'running')], [], { members: 2, turns: 7, cap: 20 })
+    expect(report).toContain('Rounds: 7 used by 2 members — cap 20')
+  })
+
+  it('says no cap is declared when the cluster declares none', () => {
+    const report = clusterStatus('main', [member('lead', 'lead', 'running')], [], { members: 1, turns: 2 })
+    expect(report).toContain('Rounds: 2 used by 1 members — no cap declared')
+  })
+
+  it('says nothing about rounds when no composition publishes them', () => {
+    const report = clusterStatus('main', [member('lead', 'lead', 'running')], [])
+    expect(report).not.toContain('Rounds:')
+  })
+
   it('says nothing rather than zero when the board is empty', () => {
     const report = clusterStatus('solo', [member('lead', 'lead', 'running')], [])
     expect(report).toContain('Members: 1 (lead + 0 teammates)')

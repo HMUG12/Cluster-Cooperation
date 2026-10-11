@@ -80,6 +80,20 @@ export interface ClusterSpec {
 export interface OrchestrationSpec {
   /** Independent review of completed work. */
   readonly review?: ReviewSpec
+  /** How many turns the cluster's members may take. */
+  readonly rounds?: RoundsSpec
+}
+
+/**
+ * Policy for how many turns a cluster's members may take.
+ *
+ * The cap is reported rather than enforced: a listener at the turn stop boundary
+ * cannot end a turn, so a declared cap is a fact the cluster surface states and a
+ * person acts on.
+ */
+export interface RoundsSpec {
+  /** Most turns one member may take. */
+  readonly max: number
 }
 
 /** Policy for reviewing completed tasks before the Lead accepts them. */

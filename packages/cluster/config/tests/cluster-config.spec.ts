@@ -473,3 +473,52 @@ clusters:
     expect(config.reviewFor()).toBeUndefined()
   })
 })
+
+describe('the declared round cap', () => {
+  it('states the cap a cluster declares', () => {
+    const config = mount(`
+version: 1
+clusters:
+  solo:
+    topology: star
+    members:
+      - name: coder
+    orchestration:
+      rounds:
+        max: 12
+`)
+    expect(config.roundsFor('solo')).toEqual({ max: 12 })
+  })
+
+  it('states no cap when the cluster declares none', () => {
+    const config = mount('version: 1\nclusters:\n  solo:\n    members:\n      - name: coder\n')
+    expect(config.roundsFor('solo')).toBeUndefined()
+  })
+
+  it('rejects a cap that is not a positive integer, and a block that states none', () => {
+    for (const max of [0, -1, 1.5, 'many']) {
+      expect(() => readClusterDocument({
+        version: 1,
+        clusters: { solo: { topology: 'star', members: [{ name: 'coder' }], orchestration: { rounds: { max } } } },
+      }, 'bad.yml')).toThrow(/rounds\.max/)
+    }
+    // A block that names no cap is not a cap: the reader says which key is missing.
+    expect(() => readClusterDocument({
+      version: 1,
+      clusters: { solo: { topology: 'star', members: [{ name: 'coder' }], orchestration: { rounds: {} } } },
+    }, 'bad.yml')).toThrow(/rounds\.max.*required/)
+  })
+
+  it('rejects an unknown key inside the block', () => {
+    expect(() => readClusterDocument({
+      version: 1,
+      clusters: {
+        solo: {
+          topology: 'star',
+          members: [{ name: 'coder' }],
+          orchestration: { rounds: { max: 4, cap: 2 } },
+        },
+      },
+    }, 'bad.yml')).toThrow(/rounds\.cap/)
+  })
+})
