@@ -1896,16 +1896,56 @@ and the machine **re-reads its inbox: fresh steering runs another step**" ✓；
 
 ---
 
+## 11.53 M2 收尾：轮次上限的"只读可见"（已完成）
+
+§11.51 的结论是"监听器停不下一轮" ✓，你据此选了**只读可见** ✓。这一刀把它落成一条
+**声明 → 计数 → 报告**的链 ✓，三处各司其职 ✓：
+
+| 位置 | 职责 |
+|---|---|
+| `packages/cluster/config` | 声明 `orchestration.rounds.max` ✓（正整数 ✓、未知键拒绝 ✓、写了块却不给 `max` 会**指名报缺** ✓）；`roundsFor()` 读出 ✓ |
+| `cluster-orchestrator` | 在每个成员的 **`agent/turn-stopping`** 上数轮 ✓——停止边界报的正是"即将关闭的那一轮" ✓，而轮号只增不减 ✓，因此**取最大值即计数** ✓，重放或重复观察都不会灌水 ✓；结果以 `ctx.clusterRounds` **只读视图**发布 ✓（与 `clusterSpend` 同款 ✓） |
+| `cluster-command` | `/cluster` 状态行新增一行 ✓：`Rounds: 7 used by 2 members — cap 20` ✓ |
+
+四个刻意的决定 ✓：
+
+1. **取样点选在停止边界** ✓，而不是 durable 事件 ✓——`turn` 就在载荷里 ✓，不需要新事件、新状态或轮询 ✓。
+2. **计数与上限各归其主** ✓：轮次只有编排器数得到 ✓，上限只有声明服务知道 ✓；命令读**两者各自发布的东西** ✓，
+   不新增任何跨包依赖 ✓（与 `/cluster cost` 同款 ✓）。只挂一半组合时**只报它有的那一半** ✓
+   （有上限无计数 → `0 used by 0 members — cap 12` ✓；有计数无上限 → `no cap declared` ✓；两半都没有 → 不出现这行 ✓）。
+3. **缺键与未知键都失败** ✓：`rounds: {}` 不是"没上限" ✗ 而是**配置错误** ✓——一个没人写下的上限不算上限 ✓。
+4. **文档同步改口** ✓：§11.51 刚写进 README 的"没有声明轮次上限" ✗ 改为"**上限是说出来、不是拦下来**" ✓；
+   编排器 README 补同一条限制与 `src/rounds.ts` 一行 ✓，命令 README 说明这一行的来源 ✓。
+
+**生成物与门禁**（这一刀要动生成器 ✓）：`RoundsSpec` 进了 `gen-cordis-catalog` 的 `LINK_MAP` ✓——
+fail-closed 的覆盖检查第一次运行就**指名要它** ✓；重生成后**中英两侧都被写入** ✓（过去我以为它只写英文侧 ✗），
+事件矩阵自动记下 `cluster-orchestrator` 消费 `agent/turn-stopping` ✓；`config-catalog` 只有一处**行号位移** ✓
+（我加了一行 import ✓）——而中文侧那行本来就与英文侧不同 ✓（`:51` vs `:46` ✓），已一并对齐到真值 ✓。
+
+**验证** ✓：
+
+- `packages/cluster` + 六个 cluster 包 **212 用例 / 17 文件全绿** ✓（本刀 +14 ✓：config 4 ✓、编排器 5 ✓、命令 5 ✓）
+- `tsc -b tsconfig.host.json` **0** ✓、`tsc -b tsconfig.client.json` **0** ✓
+- 四条 cluster E2E 全过 ✓（真 CLI + 真 Team ✓，新订阅确实跑在里面 ✓）
+- 14 项文档 / 生成器门禁全 0 ✓（配对 **1017** ✓、链接 ✓、折行 ✓、`type-equiv` **436** ✓、export-jsdoc ✓、
+  README 摘要 **355** ✓、模型体验 **299** ✓、限制 **299** ✓，以及 config-catalog / cordis-catalog / cordis-api /
+  doc-graphs / tool-catalog / tsconfig-paths ✓）
+- `constraints` ✓ / `package-dependencies` ✓ / `client-packages` ✓ / `default-product-isolation` ✓ /
+  `subsystem-pages` ✓ / `scoped-events` ✓ / `dependency-catalog` ✓ / `application-entrypoints` ✓ 全 0 ✓
+- 一处**只有 tsc 抓得到**的错误 ✓：`document.ts` 用了 `RoundsSpec` 却没 import ✗——vitest 不做类型检查 ✓，
+  于是"测试全绿"与"host 类型检查红"再次同时成立 ✓（与 §11.50 的 `configured` 同款 ✓）
+
+---
+
 ## 12. 下一步（按优先级）
 
-1. **M4 的最后一次验收是人的一次点击**：功能面已完整（§11.46），宿主组合（`--patch` 双叠加）、
-   客户端构建（`build:lib:client`）与 jsdom 组件测试（10 例）都过了，
-   缺的是**在真实浏览器里打开面板、改一份文档、保存**。
-2. **只剩一条待你决定**（§11.51）：轮次上限要"一次性收尾指令"还是"只读可见"
-   （`/cluster` 报告已用轮次 / 声明上限）？——不写代码也能定。
-   ① 未配置时的形态**已定并落地**：只在表面提示、不拦运行时（§11.52）。
+1. **浏览器验收已由你本人完成**：真服务器上已确认面板在浏览器端清单里 ✓（`cluster-web` 的客户端 bundle
+   在预加载清单中、实际可取 **200** ✓），组合层（`--patch` 双叠加）在 §11.50 那次启动中也验证过 ✓。
+   只剩**保存一次文档**这条手动路径没被走过 ✓——用 §11.50 记下的命令即可随时重启演示 ✓。
+2. **轮次上限已定型**：你选的"只读可见"**已落地** ✓（§11.53 ✓）；"一次性收尾指令"仍是可选项 ✓，
+   依据是 `agent/turn-stopping` 只能 steer ✓——需要时再开一刀 ✓。
 3. **推送与门禁都已就位**（§11.50）：`pre-commit` / `pre-push` 真实跑通、提交已推送；
    权威两组余下三项**均非本项目**（两项本机符号链接环境、一项既有）。
 4. **纪律性提醒**：本项目反复出现的模式是"配置先声明、消费者后补"——`tokenBudget`、`orchestration.review`、
    `briefing` 都经历过这个阶段。新增任何配置字段时，要么同批给出消费者，要么在 README 的 Known Limitations
-   里写明它当前无人读取（§11.51 第 3 条就是照这条办的）。
+   里写明它当前无人读取（§11.53 是**同批给出消费者**的那种 ✓）。
